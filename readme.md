@@ -8,7 +8,7 @@ And serves source data files in [src_data](https://github.com/polymonster/hotlin
 
 ## Quick Commands
 
-This repository is cloned automatically into a hotline application. You can run the following build commands to simply the build steps and make sure plugins, data and binaries are in sync:
+This repository is cloned automatically into a hotline application. You can run the following build commands to simplify the build steps and make sure plugins, data and binaries are in sync:
 
 ```text
 // from in the hotline repository
@@ -32,3 +32,7 @@ cargo build
 // build code, data and launch (debug)
 ./hotline-data/pmbuild.cmd win32-release -all -run
 ```
+
+## Customising
+
+You can add you own build `profiles` and `tasks` by editing [config.jsn](https://github.com/polymonster/hotline/blob/master/config.jsn) in the hotline repository. It should be fairly self explanitory but the main [pmbuild](https://github.com/polymonster/pmbuild) repository has more documentation.
