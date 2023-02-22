@@ -2,9 +2,7 @@
 
 This repository contains example data and tools for [hotline](https://github.com/polymonster/hotline). It is automatically cloned inside a hotline environement when running `cargo build`.
 
-It bundles [pmbuild](https://github.com/polymonster/pmbuild) and [pmfx](https://github.com/polymonster/pmbuild) in the binary directory to build data and shaders.
-
-And serves source data files in [src_data](https://github.com/polymonster/hotline/src) for use in hotline applications or plugins.
+It bundles [pmbuild](https://github.com/polymonster/pmbuild) and [pmfx](https://github.com/polymonster/pmbuild) in the binary directory to build data and shaders and serves source data files in [src](https://github.com/polymonster/hotline-data/src) for use in hotline applications or plugins.
 
 ## Quick Commands
 
