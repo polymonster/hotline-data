@@ -21,6 +21,10 @@ pmfx: {
     raster_states: {
         wireframe: {
             fill_mode: "Wireframe"
+            depth_bias: -5
+        }
+        cull_back: {
+            cull_mode: "Back"
         }
     }
     pipelines: {
@@ -42,6 +46,7 @@ pmfx: {
                 "draw_push_constants"
             ]
             depth_stencil_state: depth_test_less
+            raster_state: cull_back
             topology: "TriangleList"
         }
         wireframe_overlay: {
