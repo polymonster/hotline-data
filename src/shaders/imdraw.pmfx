@@ -71,12 +71,6 @@ pmfx: {
             clear_colour: null
             clear_depth: null
         }
-        render_grid(main_view): {
-            // TODO: function
-        }
-        render_world_view(main_view_no_clear): {
-            // TODO: function
-        }
     }
     update_graphs: {
         core: {
@@ -98,17 +92,17 @@ pmfx: {
         }
     }
     render_graphs: {
-        forward: [
-            {
-                view: "render_grid"
+        forward: {
+            grid: {
+                view: "main_view"
                 pipelines: ["imdraw_3d"]
                 function: "render_grid"
             }
-            {
-                view: "render_world_view"
+            meshes: {
+                view: "main_view_no_clear"
                 pipelines: ["imdraw_mesh"]
                 function: "render_world_view"
             }
-        ]
+        }
     }
 }

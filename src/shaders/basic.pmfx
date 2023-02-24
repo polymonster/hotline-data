@@ -113,56 +113,26 @@ pmfx: {
             clear_colour: null
             clear_depth: null
         }
-        render_grid(main_view): {
-        }
-        render_world_view(main_view_no_clear): {
-        }
-        render_checkerboard_basic(main_view_no_clear): {
-        }
-        render_wireframe(main_view_no_clear): {
-        }
     }
     render_graphs: {
-        billboard: [
-            {
-                view: "render_grid"
+        mesh_debug: {
+            grid: {
+                view: "main_view"
                 pipelines: ["imdraw_3d"]
                 function: "render_grid"
             }
-            {
-                view: "render_world_view"
-                pipelines: ["billboard_mesh"]
-                function: "render_billboards_basic"
-            }
-        ]
-        heightmap: [
-            {
-                view: "render_grid"
-                pipelines: ["imdraw_3d"]
-                function: "render_grid"
-            }
-            {
-                view: "render_world_view"
-                pipelines: ["heightmap_mesh"]
-                function: "render_heightmap_basic"
-            }
-        ]
-        checkerboard: [
-            {
-                view: "render_grid"
-                pipelines: ["imdraw_3d"]
-                function: "render_grid"
-            }
-            {
-                view: "render_checkerboard_basic"
+            meshes: {
+                view: "main_view_no_clear"
                 pipelines: ["checkerboard_mesh"]
-                function: "render_checkerboard_basic"
+                function: "render_meshes"
+                depends_on: ["grid"]
             }
-            {
-                view: "render_wireframe"
+            wireframe: {
+                view: "main_view_no_clear"
                 pipelines: ["wireframe_overlay"]
                 function: "render_wireframe"
+                depends_on: ["meshes"]
             }
-        ]
+        }
     }
 }
