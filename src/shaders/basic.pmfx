@@ -28,17 +28,7 @@ pmfx: {
         }
     }
     pipelines: {
-        constant_colour_mesh: {
-            vs: vs_mesh
-            ps: ps_main
-            push_constants: [
-                "view_push_constants"
-                "draw_push_constants"
-            ]
-            depth_stencil_state: depth_test_less
-            topology: "TriangleList"
-        }
-        checkerboard_mesh: {
+        mesh_debug: {
             vs: vs_mesh
             ps: ps_checkerboard
             push_constants: [
@@ -58,26 +48,6 @@ pmfx: {
             ]
             raster_state: wireframe
             depth_stencil_state: depth_test_always
-            topology: "TriangleList"
-        }
-        billboard_mesh: {
-            vs: vs_billboard
-            ps: ps_main
-            push_constants: [
-                "view_push_constants"
-                "draw_push_constants"
-            ]
-            depth_stencil_state: depth_test_less
-            topology: "TriangleList"
-        }
-        heightmap_mesh: {
-            vs: vs_heightmap
-            ps: ps_main
-            push_constants: [
-                "view_push_constants"
-                "draw_push_constants"
-            ]
-            depth_stencil_state: depth_test_less
             topology: "TriangleList"
         }
     }
@@ -123,7 +93,7 @@ pmfx: {
             }
             meshes: {
                 view: "main_view_no_clear"
-                pipelines: ["checkerboard_mesh"]
+                pipelines: ["mesh_debug"]
                 function: "render_meshes"
                 depends_on: ["grid"]
             }
