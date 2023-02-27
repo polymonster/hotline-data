@@ -139,6 +139,7 @@ ps_output ps_checkerboard(vs_output input) {
     ps_output output;
     output.colour = input.colour;
 
+    // checkerboard uv
     float u = (input.texcoord.x);
     float v = (input.texcoord.y);
 
@@ -157,7 +158,20 @@ ps_output ps_checkerboard(vs_output input) {
     float rxy = rx + ry > 1.0 ? 0.0 : rx + ry;
 
     output.colour.rgb *= rxy < 0.001 ? 0.66 : 1.0;
-    //output.colour.r = u;
+
+    // u gradient
+    float3 rgb_uv = float3(0.0, 0.0, 0.0);
+    float u_grad = u % 1.0;
+    if (u_grad < 0.333) {
+        rgb_uv = lerp(float3(1.0, 0, 0.0), float3(0.0, 1.0, 0.0), u_grad * 3.333);
+    }
+    else if (u_grad < 0.666) {
+        rgb_uv = lerp(float3(0.0, 1.0, 0.0), float3(0.0, 0.0, 1.0), (u_grad - 0.333) * 3.333);
+    }
+    else {
+        rgb_uv = lerp(float3(0.0, 0.0, 1.0), float3(1.0, 0.0, 0.0), (u_grad - 0.666) * 3.333);
+    }
+    //output.colour.rgb = rgb_uv;
 
     output.colour.a = 1.0;
     return output;
