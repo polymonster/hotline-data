@@ -33,13 +33,4 @@
             topology: "TriangleList"
         }
     }
-    render_graphs: {
-        forward: {
-            grid: {
-                view: "main_view"
-                pipelines: ["imdraw_3d"]
-                function: "render_grid"
-            }
-        }
-    }
 }

@@ -86,9 +86,9 @@ vs_output vs_heightmap(vs_input_mesh input) {
 
     (world_matrix);
     pos = mul(pos, world_matrix);
+
     output.position = mul(pos, projection_matrix);
     output.colour = float4(h, h, h, 1.0);
-    
     return output;
 }
 
@@ -101,23 +101,13 @@ vs_output vs_billboard(vs_input_mesh input) {
     pos = mul(pos, world_matrix);
 
     float4x4 bbmatrix = projection_matrix;
-
-    bbmatrix[0][0] = 1.0;
-    bbmatrix[0][1] = 0.0;
-    bbmatrix[0][2] = 0.0;
-
-    bbmatrix[1][0] = 0.0;
-    bbmatrix[1][1] = 1.0;
-    bbmatrix[1][2] = 0.0;
-
-    bbmatrix[2][0] = 0.0;
-    bbmatrix[2][1] = 0.0;
-    bbmatrix[2][2] = 1.0;
+    
 
     output.position = mul(pos, bbmatrix);
-
-    output.colour = float4(input.normal.xyz, 1.0);
     
+    output.colour = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
+    output.texcoord = input.texcoord;
+
     return output;
 }
 
@@ -125,12 +115,12 @@ ps_output ps_main(vs_output input) {
     ps_output output;
     
     output.colour = input.colour;
-
     return output;
 }
 
 ps_output ps_wireframe(vs_output input) {
     ps_output output;
+
     output.colour = float4(0.2, 0.2, 0.2, 1.0);
     return output;
 }
