@@ -9,7 +9,9 @@ struct ps_output {
 };
 
 cbuffer view_push_constants : register(b0) {
+    float4x4 view_matrix;
     float4x4 projection_matrix;
+    float4x4 view_projection_matrix;
 };
 
 cbuffer draw_push_constants : register(b1) {
@@ -24,40 +26,19 @@ struct vs_input_mesh {
     float3 bitangent : TEXCOORD3;
 };
 
-float random(float2 st) {
-    return frac(sin(dot(st.xy, float2(12.9898,78.233))) * 43758.5453123);
-}
-
-float noise(float2 st) {
-    // https://www.shadertoy.com/view/4dS3Wd
-    float2 i = floor(st);
-    float2 f = frac(st);
-
-    // Four corners in 2D of a tile
-    float a = random(i);
-    float b = random(i + float2(1.0, 0.0));
-    float c = random(i + float2(0.0, 1.0));
-    float d = random(i + float2(1.0, 1.0));
-
-    float2 u = f * f * (3.0 - 2.0 * f);
-
-    return lerp(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
-}
-
-#define OCTAVES 6
-float fbm(float2 st) {
-    // Initial values
-    float value = 0.0;
-    float amplitude = 0.3;
-    float frequency = 0.0;
-
-    // Loop of octaves
-    for (int i = 0; i < OCTAVES; i++) {
-        value += amplitude * noise(st);
-        st *= 3.0;
-        amplitude *= 0.8;
+float3 uv_gradient(float x) {
+    float3 rgb_uv = float3(0.0, 0.0, 0.0);
+    float grad = x % 1.0;
+    if (grad < 0.333) {
+        rgb_uv = lerp(float3(1.0, 0, 0.0), float3(0.0, 1.0, 0.0), grad * 3.333);
     }
-    return value;
+    else if (grad < 0.666) {
+        rgb_uv = lerp(float3(0.0, 1.0, 0.0), float3(0.0, 0.0, 1.0), (grad - 0.333) * 3.333);
+    }
+    else {
+        rgb_uv = lerp(float3(0.0, 0.0, 1.0), float3(1.0, 0.0, 0.0), (grad - 0.666) * 3.333);
+    }
+    return rgb_uv;
 }
 
 vs_output vs_mesh(vs_input_mesh input) {
@@ -65,9 +46,8 @@ vs_output vs_mesh(vs_input_mesh input) {
 
 	float4 pos = float4(input.position.xyz, 1.0);
     
-    (world_matrix);
     pos = mul(pos, world_matrix);
-    output.position = mul(pos, projection_matrix);
+    output.position = mul(pos, view_projection_matrix);
 
     output.colour = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
     output.texcoord = input.texcoord;
@@ -75,36 +55,20 @@ vs_output vs_mesh(vs_input_mesh input) {
     return output;
 }
 
-vs_output vs_heightmap(vs_input_mesh input) {
-    vs_output output;
-
-	float4 pos = float4(input.position.xyz, 1.0);
-
-    float2 p = pos.xz;
-    float h = fbm(p + fbm( p + fbm(p)));
-    pos.y += h;
-
-    (world_matrix);
-    pos = mul(pos, world_matrix);
-
-    output.position = mul(pos, projection_matrix);
-    output.colour = float4(h, h, h, 1.0);
-    return output;
-}
-
 vs_output vs_billboard(vs_input_mesh input) {
     vs_output output;
 
-	float4 pos = float4(input.position.xyz, 1.0);
-    
+    float4 pos = float4(input.position.xyz, 1.0);
+    //pos = mul(pos, world_matrix);
+
     (world_matrix);
-    pos = mul(pos, world_matrix);
+    (view_matrix);
+    (projection_matrix);
+    (view_projection_matrix);
 
-    float4x4 bbmatrix = projection_matrix;
-    
+    float4x4 vv = mul(view_matrix, projection_matrix);
 
-    output.position = mul(pos, bbmatrix);
-    
+    output.position = mul(pos, vv);
     output.colour = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
     output.texcoord = input.texcoord;
 
@@ -123,21 +87,6 @@ ps_output ps_wireframe(vs_output input) {
 
     output.colour = float4(0.2, 0.2, 0.2, 1.0);
     return output;
-}
-
-float3 uv_gradient(float x) {
-    float3 rgb_uv = float3(0.0, 0.0, 0.0);
-    float grad = x % 1.0;
-    if (grad < 0.333) {
-        rgb_uv = lerp(float3(1.0, 0, 0.0), float3(0.0, 1.0, 0.0), grad * 3.333);
-    }
-    else if (grad < 0.666) {
-        rgb_uv = lerp(float3(0.0, 1.0, 0.0), float3(0.0, 0.0, 1.0), (grad - 0.333) * 3.333);
-    }
-    else {
-        rgb_uv = lerp(float3(0.0, 0.0, 1.0), float3(1.0, 0.0, 0.0), (grad - 0.666) * 3.333);
-    }
-    return rgb_uv;
 }
 
 ps_output ps_checkerboard(vs_output input) {
