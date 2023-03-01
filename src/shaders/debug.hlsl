@@ -59,16 +59,14 @@ vs_output vs_billboard(vs_input_mesh input) {
     vs_output output;
 
     float4 pos = float4(input.position.xyz, 1.0);
-    //pos = mul(pos, world_matrix);
+    pos = mul(pos, world_matrix);
 
     (world_matrix);
     (view_matrix);
     (projection_matrix);
     (view_projection_matrix);
 
-    float4x4 vv = mul(view_matrix, projection_matrix);
-
-    output.position = mul(pos, vv);
+    output.position = mul(pos, view_projection_matrix);
     output.colour = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
     output.texcoord = input.texcoord;
 
@@ -114,10 +112,10 @@ ps_output ps_checkerboard(vs_output input) {
     output.colour.rgb *= rxy < 0.001 ? 0.66 : 1.0;
 
     // u gradient
-    // output.colour.rgb = uv_gradient(u % 1.0);
+    //output.colour.rgb = uv_gradient(u % 1.0);
 
     // v gradient
-    // output.colour.rgb = uv_gradient(v % 1.0);
+    //output.colour.rgb = uv_gradient(v % 1.0);
 
     output.colour.a = 1.0;
     return output;

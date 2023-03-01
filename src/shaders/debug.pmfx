@@ -1,6 +1,6 @@
 {
     include: [
-        "basic.hlsl",
+        "debug.hlsl",
         "hotline.pmfx"
     ]
     pipelines: {
@@ -13,16 +13,6 @@
             ]
             depth_stencil_state: depth_test_less
             raster_state: cull_back
-            topology: "TriangleList"
-        }
-        billboard_debug: {
-            vs: vs_billboard
-            ps: ps_checkerboard
-            push_constants: [
-                "view_push_constants"
-                "draw_push_constants"
-            ]
-            depth_stencil_state: depth_test_less
             topology: "TriangleList"
         }
         wireframe_overlay: {
@@ -44,28 +34,18 @@
                 pipelines: ["imdraw_3d"]
                 function: "render_grid"
             }
-            /*
             meshes: {
                 view: "main_view_no_clear"
                 pipelines: ["mesh_debug"]
                 function: "render_meshes"
                 depends_on: ["grid"]
             }
-            */
-            billboards: {
-                view: "main_view_no_clear"
-                pipelines: ["billboard_debug"]
-                function: "render_billboards"
-                depends_on: ["grid"]
-            }
-            /*
             wireframe: {
                 view: "main_view_no_clear"
                 pipelines: ["wireframe_overlay"]
-                function: "render_wireframe"
-                depends_on: ["meshes"]
+                function: "render_meshes"
+                depends_on: ["meshes", "grid"]
             }
-            */
         }
     }
 }

@@ -1,0 +1,57 @@
+{
+    include: [
+        "debug.hlsl",
+        "debug.pmfx"
+    ]
+    views: {
+        missing_camera_view: {
+            render_target: [
+                "main_colour"
+            ]
+            clear_colour: [0.45, 0.55, 0.60, 1.0]
+            depth_stencil: [
+                "main_depth"
+            ]
+            clear_depth: 1.0
+            viewport: [0.0, 0.0, 1.0, 1.0, 0.0, 1.0]
+            camera: "missing"
+        }
+    }
+    render_graphs: {
+        missing_view: {
+            missing_view: {
+                view: "missing"
+                pipelines: ["imdraw_3d"]
+                function: "render_grid"
+            }
+        }
+        missing_function: {
+            meshes: {
+                view: "main_view_no_clear"
+                pipelines: ["mesh_debug"]
+                function: "missing"
+            }
+        }
+        failing_pipeline: {
+            missing_view: {
+                view: "main_view"
+                pipelines: ["missing"]
+                function: "render_grid"
+            }
+        }
+        missing_pipeline: {
+            missing_view: {
+                view: "main_view"
+                pipelines: ["mesh_debug"]
+                function: "render_missing_pipeline"
+            }
+        }
+        missing_camera: {
+            meshes: {
+                view: "missing_camera_view"
+                pipelines: ["mesh_debug"]
+                function: "render_missing_camera"
+            }
+        }
+    }
+}
