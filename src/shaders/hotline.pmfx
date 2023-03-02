@@ -28,7 +28,7 @@
     textures: {
         main_colour: {
             ratio: {
-                window: "main_window",
+                window: "main_dock",
                 scale: 1.0
             }
             format: "RGBA8n"
