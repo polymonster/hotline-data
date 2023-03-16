@@ -88,13 +88,6 @@ pmfx: {
             address_w: "Wrap",
         }
     }
-    depth_stencil_states: {
-        depth_tested: {
-            depth_enabled: true,
-            depth_write_mask: "All",
-            depth_func: "Less"
-        }
-    }
     pipelines: {
         bindless: {
             vs: vs_main,
@@ -106,7 +99,6 @@ pmfx: {
             static_samplers: {
                 sampler0: "wrap_linear"
             }
-            depth_stencil_state: "depth_tested"
             topology: "TriangleList"
         }
 

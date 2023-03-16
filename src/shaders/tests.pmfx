@@ -1,7 +1,5 @@
+import debug.pmfx
 {
-    include: [
-        "debug.pmfx"
-    ]
     views: {
         missing_camera_view: {
             render_target: [
@@ -14,6 +12,46 @@
             clear_depth: 1.0
             viewport: [0.0, 0.0, 1.0, 1.0, 0.0, 1.0]
             camera: "missing"
+        }
+    }
+    render_target_blend_states: {
+        subtract: {
+            blend_enable: true
+            src_blend: SrcColour
+            dst_blend: DstColour
+            blend_op: Subtract
+        }
+    }
+    blend_states: {
+        subtract: {
+            render_target: [subtract]
+        }
+    }
+    pipelines: {
+        cull_none(mesh_debug): {
+            raster_state: cull_none
+        }
+        cull_front(cull_none): {
+            raster_state: cull_front
+        }
+        cull_back(cull_none): {
+            raster_state: cull_back
+        }
+        blend_disabled(cull_none): {
+            ps: ps_constant_colour
+            blend_state: disabled
+        }
+        blend_additive(cull_none): {
+            ps: ps_constant_colour
+            blend_state: additive
+        }
+        blend_alpha(cull_none): {
+            ps: ps_constant_colour
+            blend_state: alpha
+        }
+        blend_subtract(cull_none): {
+            ps: ps_constant_colour
+            blend_state: subtract
         }
     }
     render_graphs: {
@@ -50,6 +88,38 @@
                 view: "missing_camera_view"
                 pipelines: ["mesh_debug"]
                 function: "render_missing_camera"
+            }
+        }
+        raster_test: {
+            grid: {
+                view: "main_view"
+                pipelines: ["imdraw_3d"]
+                function: "render_grid"
+            }
+            raster_meshes: {
+                view: "main_view_no_clear"
+                pipelines: ["cull_none", "cull_front", "cull_back", "wireframe_overlay"]
+                function: "render_meshes_pipeline"
+                depends_on: ["grid"]
+            }
+        }
+        blend_test: {
+            grid: {
+                view: "main_view"
+                pipelines: ["imdraw_3d"]
+                function: "render_grid"
+            }
+            blend_meshes: {
+                view: "main_view_no_clear"
+                pipelines: [
+                    "cull_back",
+                    "blend_disabled", 
+                    "blend_additive", 
+                    "blend_alpha", 
+                    "blend_subtract"
+                ]
+                function: "render_meshes_pipeline"
+                depends_on: ["grid"]
             }
         }
     }

@@ -2,41 +2,73 @@
     depth_stencil_states: {
         depth_test_less: {
             depth_enabled: true
-            depth_write_mask: "All"
-            depth_func: "Less"
+            depth_write_mask: All
+            depth_func: Less
         }
         depth_test_equal: {
             depth_enabled: true
-            depth_write_mask: "All"
-            depth_func: "Equal"
+            depth_write_mask: All
+            depth_func: Equal
         }
         depth_test_always: {
             depth_enabled: true
-            depth_write_mask: "All"
-            depth_func: "Less"
+            depth_write_mask: All
+            depth_func: Less
         }
     }
     raster_states: {
         wireframe: {
-            fill_mode: "Wireframe"
+            fill_mode: Wireframe
             depth_bias: -5
         }
         cull_back: {
-            cull_mode: "Back"
+            cull_mode: Back
+        }
+        cull_none: {
+            cull_mode: None
+        }
+        cull_front: {
+            cull_mode: Front
+        }
+    }
+    render_target_blend_states: {
+        disabled: {
+            blend_enabled: false
+        }
+        additive: {
+            blend_enabled: true
+            src_blend: One
+            dst_blend: One
+        }
+        alpha: {
+            blend_enabled: true
+            src_blend: SrcAlpha
+            dst_blend: InvSrcAlpha
+        }
+    }
+    blend_states: {
+        disabled: {
+            render_target: [disabled]
+        }
+        additive: {
+            render_target: [additive]
+        }
+        alpha: {
+            render_target: [alpha]
         }
     }
     textures: {
         main_colour: {
             ratio: {
-                window: "main_dock",
+                window: main_dock
                 scale: 1.0
             }
-            format: "RGBA8n"
+            format: BGRX8n
             usage: ["ShaderResource", "RenderTarget"]
             samples: 8
         }
         main_depth(main_colour): {
-            format: "D24nS8u"
+            format: D24nS8u
             usage: ["ShaderResource", "DepthStencil"]
             samples: 8
         }
@@ -44,15 +76,15 @@
     views: {
         main_view: {
             render_target: [
-                "main_colour"
+                main_colour
             ]
             clear_colour: [0.45, 0.55, 0.60, 1.0]
             depth_stencil: [
-                "main_depth"
+                main_depth
             ]
             clear_depth: 1.0
             viewport: [0.0, 0.0, 1.0, 1.0, 0.0, 1.0]
-            camera: "main_camera"
+            camera: main_camera
         }
         main_view_no_clear(main_view): {
             clear_colour: null
