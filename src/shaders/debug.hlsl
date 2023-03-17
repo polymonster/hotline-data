@@ -1,3 +1,5 @@
+// #pragma pack_matrix(row_major)
+
 struct vs_output {
     float4 position : SV_POSITION0;
     float4 colour: TEXCOORD0;
@@ -15,11 +17,11 @@ cbuffer view_push_constants : register(b0) {
 };
 
 cbuffer draw_push_constants : register(b1) {
-    float4x4 world_matrix;
+    float3x4 world_matrix;
 };
 
 struct cbuffer_instance_data {
-    float4x4 cbuffer_world_matrix[1024];
+    float3x4 cbuffer_world_matrix[1024];
 };
 ConstantBuffer<cbuffer_instance_data> cbuffer_instance : register(b1);
 
@@ -56,11 +58,13 @@ float3 uv_gradient(float x) {
 vs_output vs_mesh(vs_input_mesh input) {
     vs_output output;
 
-	float4 pos = float4(input.position.xyz, 1.0);
+    float3x4 wm = world_matrix;
     
-    pos = mul(pos, world_matrix);
-    output.position = mul(pos, view_projection_matrix);
+    float4 pos = float4(input.position.xyz, 1.0);
+    pos.xyz = mul(wm, pos);
 
+    output.position = mul(view_projection_matrix, pos);
+ 
     output.colour = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
     output.texcoord = input.texcoord;
     
@@ -70,16 +74,15 @@ vs_output vs_mesh(vs_input_mesh input) {
 vs_output vs_mesh_vertex_buffer_instanced(vs_input_mesh input, vs_input_instance instance_input) {
     vs_output output;
 
-    float4x4 instance_matrix;
+    float3x4 instance_matrix;
     instance_matrix[0] = instance_input.row0;
     instance_matrix[1] = instance_input.row1;
     instance_matrix[2] = instance_input.row2;
-    instance_matrix[3] = instance_input.row3;
 
 	float4 pos = float4(input.position.xyz, 1.0);
+    pos.xyz = mul(instance_matrix, pos);
 
-    pos = mul(instance_matrix, pos);
-    output.position = mul(pos, view_projection_matrix);
+    output.position = mul(view_projection_matrix, pos);
 
     output.colour = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
     output.texcoord = input.texcoord;
@@ -91,9 +94,9 @@ vs_output vs_mesh_cbuffer_instanced(vs_input_mesh input, uint iid: SV_InstanceID
     vs_output output;
 
 	float4 pos = float4(input.position.xyz, 1.0);
-    
-    pos = mul(pos, cbuffer_instance.cbuffer_world_matrix[iid]);
-    output.position = mul(pos, view_projection_matrix);
+    pos.xyz = mul(cbuffer_instance.cbuffer_world_matrix[iid], pos);
+
+    output.position = mul(view_projection_matrix, pos);
     output.colour = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
 
     output.texcoord = input.texcoord;
@@ -104,14 +107,9 @@ vs_output vs_billboard(vs_input_mesh input) {
     vs_output output;
 
     float4 pos = float4(input.position.xyz, 1.0);
-    pos = mul(pos, world_matrix);
+    pos = mul(world_matrix, pos);
 
-    (world_matrix);
-    (view_matrix);
-    (projection_matrix);
-    (view_projection_matrix);
-
-    output.position = mul(pos, view_projection_matrix);
+    output.position = mul(view_projection_matrix, pos);
     output.colour = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
     output.texcoord = input.texcoord;
 
