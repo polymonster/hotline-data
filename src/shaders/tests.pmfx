@@ -21,10 +21,19 @@ import debug.pmfx
             dst_blend: DstColour
             blend_op: Subtract
         }
+        rev_subtract: {
+            blend_enable: true
+            src_blend: SrcColour
+            dst_blend: DstColour
+            blend_op: RevSubtract
+        }
     }
     blend_states: {
         subtract: {
             render_target: [subtract]
+        }
+        rev_subtract: {
+            render_target: [rev_subtract]
         }
     }
     pipelines: {
@@ -52,6 +61,10 @@ import debug.pmfx
         blend_subtract(cull_none): {
             ps: ps_constant_colour
             blend_state: subtract
+        }
+        blend_rev_subtract(cull_none): {
+            ps: ps_constant_colour
+            blend_state: rev_subtract
         }
     }
     render_graphs: {
@@ -112,11 +125,12 @@ import debug.pmfx
             blend_meshes: {
                 view: "main_view_no_clear"
                 pipelines: [
-                    "cull_back",
-                    "blend_disabled", 
-                    "blend_additive", 
-                    "blend_alpha", 
+                    "cull_back"
+                    "blend_disabled"
+                    "blend_additive"
+                    "blend_alpha"
                     "blend_subtract"
+                    "blend_rev_subtract" 
                 ]
                 function: "render_meshes_pipeline"
                 depends_on: ["grid"]

@@ -18,6 +18,7 @@ cbuffer view_push_constants : register(b0) {
 
 cbuffer draw_push_constants : register(b1) {
     float3x4 world_matrix;
+    float4   draw_colour;
 };
 
 struct cbuffer_instance_data {
@@ -118,7 +119,6 @@ vs_output vs_billboard(vs_input_mesh input) {
 
 ps_output ps_main(vs_output input) {
     ps_output output;
-    
     output.colour = input.colour;
     return output;
 }
@@ -131,7 +131,7 @@ ps_output ps_wireframe(vs_output input) {
 
 ps_output ps_constant_colour(vs_output input) {
     ps_output output;
-    output.colour = float4(0.2, 0.2, 0.2, 0.2);
+    output.colour = draw_colour;
     return output;
 }
 
