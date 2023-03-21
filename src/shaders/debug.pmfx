@@ -33,6 +33,14 @@ import hotline.pmfx
                 "view_push_constants"
             ]
         }
+        mesh_push_constant_material(mesh_debug): {
+            vs: vs_mesh_push_constant_material
+            ps: ps_mesh_push_constant_material
+            push_constants: [
+                "view_push_constants"
+                "material_push_constants"
+            ]
+        }
         wireframe_overlay: {
             vs: vs_mesh
             ps: ps_wireframe
@@ -88,6 +96,19 @@ import hotline.pmfx
                 view: "main_view_no_clear"
                 pipelines: ["mesh_debug_cbuffer_instanced"]
                 function: "render_meshes_cbuffer_instanced"
+                depends_on: ["grid"]
+            }
+        }
+        mesh_push_constant_material: {
+            grid: {
+                view: "main_view"
+                pipelines: ["imdraw_3d"]
+                function: "render_grid"
+            }
+            meshes: {
+                view: "main_view_no_clear"
+                pipelines: ["mesh_push_constant_material"]
+                function: "render_meshes_push_constant_material"
                 depends_on: ["grid"]
             }
         }

@@ -132,7 +132,7 @@ import debug.pmfx
                     "blend_subtract"
                     "blend_rev_subtract" 
                 ]
-                function: "render_meshes_pipeline"
+                function: "render_meshes_pipeline_coloured"
                 depends_on: ["grid"]
             }
         }

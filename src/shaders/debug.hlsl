@@ -11,8 +11,6 @@ struct ps_output {
 };
 
 cbuffer view_push_constants : register(b0) {
-    float4x4 view_matrix;
-    float4x4 projection_matrix;
     float4x4 view_projection_matrix;
 };
 
@@ -21,10 +19,16 @@ cbuffer draw_push_constants : register(b1) {
     float4   draw_colour;
 };
 
+cbuffer material_push_constants : register(b1) {
+    float3x4 material_world_matrix;
+    uint4    texture_indices;
+};
+
 struct cbuffer_instance_data {
     float3x4 cbuffer_world_matrix[1024];
 };
 ConstantBuffer<cbuffer_instance_data> cbuffer_instance : register(b1);
+Texture2D textures[] : register(t0);
 
 struct vs_input_mesh {
     float3 position : POSITION;
@@ -67,6 +71,22 @@ vs_output vs_mesh(vs_input_mesh input) {
     output.position = mul(view_projection_matrix, pos);
  
     output.colour = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
+    output.texcoord = input.texcoord;
+    
+    return output;
+}
+
+vs_output vs_mesh_push_constant_material(vs_input_mesh input) {
+    vs_output output;
+
+    float3x4 wm = material_world_matrix;
+    
+    float4 pos = float4(input.position.xyz, 1.0);
+    pos.xyz = mul(wm, pos);
+
+    output.position = mul(view_projection_matrix, pos);
+ 
+    output.colour = float4(1.0, 1.0, 1.0, 1.0);
     output.texcoord = input.texcoord;
     
     return output;
@@ -120,6 +140,18 @@ vs_output vs_billboard(vs_input_mesh input) {
 ps_output ps_main(vs_output input) {
     ps_output output;
     output.colour = input.colour;
+    return output;
+}
+
+ps_output ps_mesh_push_constant_material(vs_output input) {
+    ps_output output;
+
+    float2 tc = abs(input.texcoord.xy / 3.0);
+
+    int3 read_coord = int3(tc.x * 2048.0, tc.y * 2048.0, 0);
+    float4 albedo = textures[texture_indices.x].Load(read_coord);
+    
+    output.colour = albedo;
     return output;
 }
 
