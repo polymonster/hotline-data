@@ -28,7 +28,9 @@ struct cbuffer_instance_data {
     float3x4 cbuffer_world_matrix[1024];
 };
 ConstantBuffer<cbuffer_instance_data> cbuffer_instance : register(b1);
+
 Texture2D textures[] : register(t0);
+SamplerState samplers[1] : register(s0);
 
 struct vs_input_mesh {
     float3 position : POSITION;
@@ -146,11 +148,10 @@ ps_output ps_main(vs_output input) {
 ps_output ps_mesh_push_constant_material(vs_output input) {
     ps_output output;
 
-    float2 tc = abs(input.texcoord.xy / 3.0);
-
-    int3 read_coord = int3(tc.x * 2048.0, tc.y * 2048.0, 0);
-    float4 albedo = textures[texture_indices.x].Load(read_coord);
+    float2 tc = input.texcoord.xy;
+    float4 albedo = textures[texture_indices.y].Sample(samplers[0], tc);
     
+    albedo *= albedo.a;
     output.colour = albedo;
     return output;
 }

@@ -40,6 +40,9 @@ import hotline.pmfx
                 "view_push_constants"
                 "material_push_constants"
             ]
+            static_samplers: {
+                samplers: wrap_linear
+            }
         }
         wireframe_overlay: {
             vs: vs_mesh
