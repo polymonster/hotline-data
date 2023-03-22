@@ -1,0 +1,13 @@
+hotline-data\src\textures\bear\bear_stomp_anim_001.png
+hotline-data\src\textures\bear\bear_stomp_anim_002.png
+hotline-data\src\textures\bear\bear_stomp_anim_003.png
+hotline-data\src\textures\bear\bear_stomp_anim_004.png
+hotline-data\src\textures\bear\bear_stomp_anim_005.png
+hotline-data\src\textures\bear\bear_stomp_anim_006.png
+hotline-data\src\textures\bear\bear_stomp_anim_007.png
+hotline-data\src\textures\bear\bear_stomp_anim_008.png
+hotline-data\src\textures\bear\bear_stomp_anim_009.png
+hotline-data\src\textures\bear\bear_stomp_anim_010.png
+hotline-data\src\textures\bear\bear_stomp_anim_011.png
+hotline-data\src\textures\bear\bear_stomp_anim_012.png
+hotline-data\src\textures\bear\bear_stomp_anim_013.png

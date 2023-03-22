@@ -1,0 +1,6 @@
+hotline-data\src\textures\cubemap\posx.jpg
+hotline-data\src\textures\cubemap\negx.jpg
+hotline-data\src\textures\cubemap\posy.jpg
+hotline-data\src\textures\cubemap\negy.jpg
+hotline-data\src\textures\cubemap\posz.jpg
+hotline-data\src\textures\cubemap\negz.jpg
