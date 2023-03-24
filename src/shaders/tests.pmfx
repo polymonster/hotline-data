@@ -38,7 +38,7 @@ import debug.pmfx
     }
     pipelines: {
         cubemap_test(mesh_debug): {
-            vs: vs_mesh_push_constants_material
+            vs: vs_mesh_push_constants
             ps: ps_cubemap_test
             static_samplers: {
                 sampler_wrap_linear: wrap_linear
@@ -66,7 +66,7 @@ import debug.pmfx
             raster_state: cull_back
         }
         blend_disabled(cull_none): {
-            vs: vs_mesh_push_constants_material
+            vs: vs_mesh_push_constants
             ps: ps_constant_colour
             blend_state: disabled
             push_constants: [
@@ -101,7 +101,12 @@ import debug.pmfx
                 depends_on: ["grid"]
             }
         }
-        blend_test(raster_test): {
+        blend_test: {
+            grid: {
+                view: "main_view"
+                pipelines: ["imdraw_3d"]
+                function: "render_grid"
+            }
             blend_meshes: {
                 view: "main_view_no_clear"
                 pipelines: [
@@ -116,7 +121,12 @@ import debug.pmfx
                 depends_on: ["grid"]
             }
         }
-        cubemap_test(raster_test): {
+        cubemap_test: {
+            grid: {
+                view: "main_view"
+                pipelines: ["imdraw_3d"]
+                function: "render_grid"
+            }
             sphere_meshes: {
                 view: "main_view_no_clear"
                 pipelines: [
@@ -126,8 +136,13 @@ import debug.pmfx
                 depends_on: ["grid"]
             }
         }
-        texture2d_array_test(raster_test): {
-            sphere_meshes: {
+        texture2d_array_test: {
+            grid: {
+                view: "main_view"
+                pipelines: ["imdraw_3d"]
+                function: "render_grid"
+            }
+            billboard_meshes: {
                 view: "main_view_no_clear"
                 pipelines: [
                     "texture2d_array_test"
@@ -137,7 +152,7 @@ import debug.pmfx
             }
         }
         texture3d_test(raster_test): {
-            meshes: {
+            sdf_meshes: {
                 view: "main_view_no_clear"
                 pipelines: [
                     "texture3d_test"

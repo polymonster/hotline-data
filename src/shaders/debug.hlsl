@@ -45,7 +45,7 @@ ConstantBuffer<cbuffer_instance_data> cbuffer_instance : register(b1);
 // alias texture types on t0
 Texture2D textures[] : register(t0);
 TextureCube cubemaps[] : register(t0);
-Texture2DArray texture2d_arrays[] : register(t0);
+Texture2DArray texture_arrays[] : register(t0);
 Texture3D volume_textures[] : register(t0);
 
 SamplerState sampler_wrap_linear : register(s0);
@@ -65,24 +65,7 @@ float3 uv_gradient(float x) {
     return rgb_uv;
 }
 
-vs_output vs_mesh(vs_input_mesh input) {
-    vs_output output;
-
-    float3x4 wm = world_matrix;
-    
-    float4 pos = float4(input.position.xyz, 1.0);
-    pos.xyz = mul(wm, pos);
-
-    output.position = mul(view_projection_matrix, pos);
-    output.world_pos = pos;
-    output.texcoord = float4(input.texcoord, 0.0, 0.0);
-    output.colour = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
-    output.normal = input.normal.xyz;
-    
-    return output;
-}
-
-vs_output vs_mesh_push_constants_material(vs_input_mesh input) {
+vs_output vs_mesh_push_constants(vs_input_mesh input) {
     vs_output output;
 
     float3x4 wm = world_matrix;
@@ -158,11 +141,11 @@ ps_output ps_main(vs_output input) {
     return output;
 }
 
-ps_output ps_mesh_push_constants_material(vs_output input) {
+ps_output ps_mesh_push_constants_texture(vs_output input) {
     ps_output output;
 
     float2 tc = input.texcoord.xy;
-    float4 albedo = textures[draw_indices.y].Sample(sampler_wrap_linear, tc);
+    float4 albedo = textures[draw_indices.x].Sample(sampler_wrap_linear, tc);
     
     albedo *= albedo.a;
     output.colour = albedo;
@@ -185,7 +168,7 @@ ps_output ps_constant_colour(vs_output input) {
 
 ps_output ps_checkerboard(vs_output input) {
     ps_output output;
-    output.colour = input.colour;
+    output.colour = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
 
     // checkerboard uv
     float u = (input.texcoord.x);
@@ -239,7 +222,7 @@ ps_output ps_texture2d_array_test(vs_output input) {
 
     float2 tc = float2(input.texcoord.x, 1.0 - input.texcoord.y);
 
-    float4 col = texture2d_arrays[draw_indices.x]
+    float4 col = texture_arrays[draw_indices.x]
         .Sample(sampler_wrap_linear, float3(tc, draw_indices.y));
 
     if(col.a < 0.2) {
@@ -259,6 +242,7 @@ ps_output ps_texture3d_test(vs_output input) {
     ps_output output;
 
     (textures);
+    (texture_arrays);
     
     float3 v = input.texcoord.xyz;
     float3 chebyshev_norm = chebyshev_normalize(v);
@@ -315,7 +299,6 @@ ps_output ps_texture3d_test(vs_output input) {
         if( d <= 0.3 )    
             break;
     }
-    
     float vd = (1.0 - d);
     output.colour.rgb = float3(vd*vd,vd*vd, vd*vd);
     output.colour.rgb = float3(taken, taken, taken);
