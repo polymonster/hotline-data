@@ -37,6 +37,25 @@ import debug.pmfx
         }
     }
     pipelines: {
+        cubemap_test(mesh_debug): {
+            vs: vs_mesh_push_constants_material
+            ps: ps_cubemap_test
+            static_samplers: {
+                sampler_wrap_linear: wrap_linear
+            }
+            push_constants: [
+                "view_push_constants"
+                "draw_push_constants"
+            ]
+        }
+        texture2d_array_test(cubemap_test): {
+            ps: ps_texture2d_array_test
+        }
+        texture3d_test(cubemap_test): {
+            vs: vs_texture3d
+            ps: ps_texture3d_test
+            raster_state: cull_none
+        }
         cull_none(mesh_debug): {
             raster_state: cull_none
         }
@@ -47,27 +66,86 @@ import debug.pmfx
             raster_state: cull_back
         }
         blend_disabled(cull_none): {
+            vs: vs_mesh_push_constants_material
             ps: ps_constant_colour
             blend_state: disabled
+            push_constants: [
+                "view_push_constants"
+                "draw_push_constants"
+            ]
         }
-        blend_additive(cull_none): {
-            ps: ps_constant_colour
+        blend_additive(blend_disabled): {
             blend_state: additive
         }
-        blend_alpha(cull_none): {
-            ps: ps_constant_colour
+        blend_alpha(blend_disabled): {
             blend_state: alpha
         }
-        blend_subtract(cull_none): {
-            ps: ps_constant_colour
+        blend_subtract(blend_disabled): {
             blend_state: subtract
         }
-        blend_rev_subtract(cull_none): {
-            ps: ps_constant_colour
+        blend_rev_subtract(blend_disabled): {
             blend_state: rev_subtract
         }
     }
     render_graphs: {
+        raster_test: {
+            grid: {
+                view: "main_view"
+                pipelines: ["imdraw_3d"]
+                function: "render_grid"
+            }
+            raster_meshes: {
+                view: "main_view_no_clear"
+                pipelines: ["cull_none", "cull_front", "cull_back", "wireframe_overlay"]
+                function: "render_meshes_pipeline"
+                depends_on: ["grid"]
+            }
+        }
+        blend_test(raster_test): {
+            blend_meshes: {
+                view: "main_view_no_clear"
+                pipelines: [
+                    "cull_back"
+                    "blend_disabled"
+                    "blend_additive"
+                    "blend_alpha"
+                    "blend_subtract"
+                    "blend_rev_subtract" 
+                ]
+                function: "render_meshes_pipeline_coloured"
+                depends_on: ["grid"]
+            }
+        }
+        cubemap_test(raster_test): {
+            sphere_meshes: {
+                view: "main_view_no_clear"
+                pipelines: [
+                    "cubemap_test"
+                ]
+                function: "render_meshes_cubemap_test"
+                depends_on: ["grid"]
+            }
+        }
+        texture2d_array_test(raster_test): {
+            sphere_meshes: {
+                view: "main_view_no_clear"
+                pipelines: [
+                    "texture2d_array_test"
+                ]
+                function: "render_meshes_texture2d_array_test"
+                depends_on: ["grid"]
+            }
+        }
+        texture3d_test(raster_test): {
+            meshes: {
+                view: "main_view_no_clear"
+                pipelines: [
+                    "texture3d_test"
+                ]
+                function: "render_meshes_texture3d_test"
+                depends_on: ["grid"]
+            }
+        }
         missing_view: {
             missing_view: {
                 view: "missing"
@@ -83,57 +161,24 @@ import debug.pmfx
             }
         }
         failing_pipeline: {
-            missing_view: {
+            failing_pipeline: {
                 view: "main_view"
                 pipelines: ["missing"]
                 function: "render_grid"
             }
         }
         missing_pipeline: {
-            missing_view: {
+            missing_pipeline: {
                 view: "main_view"
                 pipelines: ["mesh_debug"]
                 function: "render_missing_pipeline"
             }
         }
         missing_camera: {
-            meshes: {
+            missing_camera: {
                 view: "missing_camera_view"
                 pipelines: ["mesh_debug"]
                 function: "render_missing_camera"
-            }
-        }
-        raster_test: {
-            grid: {
-                view: "main_view"
-                pipelines: ["imdraw_3d"]
-                function: "render_grid"
-            }
-            raster_meshes: {
-                view: "main_view_no_clear"
-                pipelines: ["cull_none", "cull_front", "cull_back", "wireframe_overlay"]
-                function: "render_meshes_pipeline"
-                depends_on: ["grid"]
-            }
-        }
-        blend_test: {
-            grid: {
-                view: "main_view"
-                pipelines: ["imdraw_3d"]
-                function: "render_grid"
-            }
-            blend_meshes: {
-                view: "main_view_no_clear"
-                pipelines: [
-                    "cull_back"
-                    "blend_disabled"
-                    "blend_additive"
-                    "blend_alpha"
-                    "blend_subtract"
-                    "blend_rev_subtract" 
-                ]
-                function: "render_meshes_pipeline_coloured"
-                depends_on: ["grid"]
             }
         }
     }

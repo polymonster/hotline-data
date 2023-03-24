@@ -1,37 +1,3 @@
-// #pragma pack_matrix(row_major)
-
-struct vs_output {
-    float4 position : SV_POSITION0;
-    float4 colour: TEXCOORD0;
-    float2 texcoord: TEXCOORD1;
-};
-
-struct ps_output {
-    float4 colour : SV_Target;
-};
-
-cbuffer view_push_constants : register(b0) {
-    float4x4 view_projection_matrix;
-};
-
-cbuffer draw_push_constants : register(b1) {
-    float3x4 world_matrix;
-    float4   draw_colour;
-};
-
-cbuffer material_push_constants : register(b1) {
-    float3x4 material_world_matrix;
-    uint4    texture_indices;
-};
-
-struct cbuffer_instance_data {
-    float3x4 cbuffer_world_matrix[1024];
-};
-ConstantBuffer<cbuffer_instance_data> cbuffer_instance : register(b1);
-
-Texture2D textures[] : register(t0);
-SamplerState samplers[1] : register(s0);
-
 struct vs_input_mesh {
     float3 position : POSITION;
     float2 texcoord: TEXCOORD0;
@@ -46,6 +12,43 @@ struct vs_input_instance {
     float4 row2 : TEXCOORD6;
     float4 row3 : TEXCOORD7;
 };
+
+struct vs_output {
+    float4 position : SV_POSITION0;
+    float4 world_pos: TEXCOORD0;
+    float4 texcoord: TEXCOORD1;
+    float4 colour: TEXCOORD2;
+    float3 normal: TEXCOORD3;
+};
+
+struct ps_output {
+    float4 colour : SV_Target;
+};
+
+cbuffer view_push_constants : register(b0) {
+    float4x4 view_projection_matrix;
+    float4   view_position;
+};
+
+cbuffer draw_push_constants : register(b1) {
+    float3x4 world_matrix;
+    float4   material_colour;
+    uint4    draw_indices;
+};
+
+struct cbuffer_instance_data {
+    float3x4 cbuffer_world_matrix[1024];
+};
+
+ConstantBuffer<cbuffer_instance_data> cbuffer_instance : register(b1);
+
+// alias texture types on t0
+Texture2D textures[] : register(t0);
+TextureCube cubemaps[] : register(t0);
+Texture2DArray texture2d_arrays[] : register(t0);
+Texture3D volume_textures[] : register(t0);
+
+SamplerState sampler_wrap_linear : register(s0);
 
 float3 uv_gradient(float x) {
     float3 rgb_uv = float3(0.0, 0.0, 0.0);
@@ -71,25 +74,44 @@ vs_output vs_mesh(vs_input_mesh input) {
     pos.xyz = mul(wm, pos);
 
     output.position = mul(view_projection_matrix, pos);
- 
+    output.world_pos = pos;
+    output.texcoord = float4(input.texcoord, 0.0, 0.0);
     output.colour = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
-    output.texcoord = input.texcoord;
+    output.normal = input.normal.xyz;
     
     return output;
 }
 
-vs_output vs_mesh_push_constant_material(vs_input_mesh input) {
+vs_output vs_mesh_push_constants_material(vs_input_mesh input) {
     vs_output output;
 
-    float3x4 wm = material_world_matrix;
+    float3x4 wm = world_matrix;
     
     float4 pos = float4(input.position.xyz, 1.0);
     pos.xyz = mul(wm, pos);
 
     output.position = mul(view_projection_matrix, pos);
- 
-    output.colour = float4(1.0, 1.0, 1.0, 1.0);
-    output.texcoord = input.texcoord;
+    output.world_pos = pos;
+    output.texcoord = float4(input.texcoord, 0.0, 0.0);
+    output.colour = material_colour;
+    output.normal = input.normal.xyz;
+    
+    return output;
+}
+
+vs_output vs_texture3d(vs_input_mesh input) {
+    vs_output output;
+
+    float3x4 wm = world_matrix;
+    
+    float4 pos = float4(input.position.xyz, 1.0);
+    pos.xyz = mul(wm, pos);
+
+    output.position = mul(view_projection_matrix, pos);
+    output.world_pos = pos;
+    output.texcoord = float4(input.position, 0.0);
+    output.colour = float4(input.normal.xyz, 1.0);
+    output.normal = input.normal.xyz;
     
     return output;
 }
@@ -106,9 +128,10 @@ vs_output vs_mesh_vertex_buffer_instanced(vs_input_mesh input, vs_input_instance
     pos.xyz = mul(instance_matrix, pos);
 
     output.position = mul(view_projection_matrix, pos);
-
+    output.world_pos = pos;
+    output.texcoord = float4(input.texcoord, 0.0, 0.0);
     output.colour = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
-    output.texcoord = input.texcoord;
+    output.normal = input.normal.xyz;
     
     return output;
 }
@@ -120,21 +143,10 @@ vs_output vs_mesh_cbuffer_instanced(vs_input_mesh input, uint iid: SV_InstanceID
     pos.xyz = mul(cbuffer_instance.cbuffer_world_matrix[iid], pos);
 
     output.position = mul(view_projection_matrix, pos);
+    output.world_pos = pos;
+    output.texcoord = float4(input.texcoord, 0.0, 0.0);
     output.colour = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
-
-    output.texcoord = input.texcoord;
-    return output;
-}
-
-vs_output vs_billboard(vs_input_mesh input) {
-    vs_output output;
-
-    float4 pos = float4(input.position.xyz, 1.0);
-    pos = mul(world_matrix, pos);
-
-    output.position = mul(view_projection_matrix, pos);
-    output.colour = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
-    output.texcoord = input.texcoord;
+    output.normal = input.normal.xyz;
 
     return output;
 }
@@ -142,29 +154,32 @@ vs_output vs_billboard(vs_input_mesh input) {
 ps_output ps_main(vs_output input) {
     ps_output output;
     output.colour = input.colour;
+
     return output;
 }
 
-ps_output ps_mesh_push_constant_material(vs_output input) {
+ps_output ps_mesh_push_constants_material(vs_output input) {
     ps_output output;
 
     float2 tc = input.texcoord.xy;
-    float4 albedo = textures[texture_indices.y].Sample(samplers[0], tc);
+    float4 albedo = textures[draw_indices.y].Sample(sampler_wrap_linear, tc);
     
     albedo *= albedo.a;
     output.colour = albedo;
+
     return output;
 }
 
 ps_output ps_wireframe(vs_output input) {
     ps_output output;
     output.colour = float4(0.2, 0.2, 0.2, 1.0);
+
     return output;
 }
 
 ps_output ps_constant_colour(vs_output input) {
     ps_output output;
-    output.colour = draw_colour;
+    output.colour = input.colour;
     return output;
 }
 
@@ -192,6 +207,8 @@ ps_output ps_checkerboard(vs_output input) {
 
     output.colour.rgb *= rxy < 0.001 ? 0.66 : 1.0;
 
+    // debug switches
+
     // u gradient
     //output.colour.rgb = uv_gradient(u % 1.0);
 
@@ -199,5 +216,110 @@ ps_output ps_checkerboard(vs_output input) {
     //output.colour.rgb = uv_gradient(v % 1.0);
 
     output.colour.a = 1.0;
+
+    return output;
+}
+
+ps_output ps_cubemap_test(vs_output input) {
+    ps_output output;
+
+    (textures);
+
+    float4 col = cubemaps[draw_indices.x]
+        .SampleLevel(sampler_wrap_linear, input.normal, draw_indices.y);
+
+    output.colour = col;
+    output.colour.a = 1.0;
+
+    return output;
+}
+
+ps_output ps_texture2d_array_test(vs_output input) {
+    ps_output output;
+
+    float2 tc = float2(input.texcoord.x, 1.0 - input.texcoord.y);
+
+    float4 col = texture2d_arrays[draw_indices.x]
+        .Sample(sampler_wrap_linear, float3(tc, draw_indices.y));
+
+    if(col.a < 0.2) {
+        discard;
+    }
+
+    output.colour = col;
+
+    return output;
+}
+
+float3 chebyshev_normalize(float3 v) {
+    return (v.xyz / max(max(abs(v.x), abs(v.y)), abs(v.z)));
+}
+
+ps_output ps_texture3d_test(vs_output input) {
+    ps_output output;
+
+    (textures);
+    
+    float3 v = input.texcoord.xyz;
+    float3 chebyshev_norm = chebyshev_normalize(v);
+    float3 uvw = chebyshev_norm * 0.5 + 0.5;
+    
+    float max_samples = 64.0;
+
+    float3x3 inv_rot;
+    inv_rot[0] = world_matrix[0].xyz;
+    inv_rot[1] = world_matrix[1].xyz;
+    inv_rot[2] = world_matrix[2].xyz;
+    inv_rot = transpose(inv_rot);
+
+    float3 ray_dir = normalize(input.world_pos.xyz - view_position.xyz);
+                    
+    ray_dir = mul(inv_rot, ray_dir);
+    ray_dir = normalize(ray_dir);
+                    
+    float3 vddx = ddx( uvw );
+    float3 vddy = ddy( uvw );
+    
+    float3 scale = float3(
+        length(world_matrix[0].xyz), 
+        length(world_matrix[1].xyz), 
+        length(world_matrix[2].xyz)
+    ) * 2.0;
+        
+    float d = volume_textures[draw_indices.x].SampleGrad(sampler_wrap_linear, uvw, vddx, vddy).r;
+    
+    float3 col = float3( 0.0, 0.0, 0.0 );
+    float3 ray_pos = input.world_pos.xyz;
+    float taken = 0.0;
+    float3 min_step = (scale / max_samples); 
+    
+    for( int s = 0; s < int(max_samples); ++s )
+    {        
+        taken += 1.0 / max_samples;
+                
+        d = volume_textures[draw_indices.x].SampleGrad(sampler_wrap_linear, uvw, vddx, vddy).r;
+            
+        float3 step = ray_dir.xyz * float3(d / scale) * 0.5;
+        
+        uvw += step;
+ 
+        if(uvw.x >= 1.0 || uvw.x <= 0.0)
+            discard;
+        
+        if(uvw.y >= 1.0 || uvw.y <= 0.0)
+            discard;
+        
+        if(uvw.z >= 1.0 || uvw.z <= 0.0)
+            discard;
+            
+        if( d <= 0.3 )    
+            break;
+    }
+    
+    float vd = (1.0 - d);
+    output.colour.rgb = float3(vd*vd,vd*vd, vd*vd);
+    output.colour.rgb = float3(taken, taken, taken);
+    output.colour.a = 1.0;
+
     return output;
 }
