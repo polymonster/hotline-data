@@ -60,17 +60,6 @@
             dst_blend: InvSrcAlpha
         }
     }
-    blend_states: {
-        disabled: {
-            render_target: [disabled]
-        }
-        additive: {
-            render_target: [additive]
-        }
-        alpha: {
-            render_target: [alpha]
-        }
-    }
     textures: {
         main_colour: {
             ratio: {

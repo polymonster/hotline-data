@@ -13,6 +13,10 @@ struct vs_input_instance {
     float4 row3 : TEXCOORD7;
 };
 
+struct vs_input_entity_ids {
+    uint4 ids : TEXCOORD4;
+};
+
 struct vs_output {
     float4 position : SV_POSITION0;
     float4 world_pos: TEXCOORD0;
@@ -40,6 +44,11 @@ struct cbuffer_instance_data {
     float3x4 cbuffer_world_matrix[1024];
 };
 
+struct entity_data {
+    float3x4 world_matrix;
+    uint4    ids;
+};
+
 ConstantBuffer<cbuffer_instance_data> cbuffer_instance : register(b1);
 
 // alias texture types on t0
@@ -47,6 +56,7 @@ Texture2D textures[] : register(t0);
 TextureCube cubemaps[] : register(t0);
 Texture2DArray texture_arrays[] : register(t0);
 Texture3D volume_textures[] : register(t0);
+StructuredBuffer<entity_data> entities[] : register(t0);
 
 SamplerState sampler_wrap_linear : register(s0);
 
@@ -72,6 +82,27 @@ vs_output vs_mesh_push_constants(vs_input_mesh input) {
     
     float4 pos = float4(input.position.xyz, 1.0);
     pos.xyz = mul(wm, pos);
+
+    output.position = mul(view_projection_matrix, pos);
+    output.world_pos = pos;
+    output.texcoord = float4(input.texcoord, 0.0, 0.0);
+    output.colour = material_colour;
+    output.normal = input.normal.xyz;
+    
+    return output;
+}
+
+vs_output vs_mesh_material_instanced(vs_input_mesh input, vs_input_entity_ids entity_input) {
+    vs_output output;
+
+    float4 pos = float4(input.position.xyz, 1.0);
+    uint id = entity_input.ids[0];
+    //uint material_id = entities[id].ids[0];
+
+    float3x4 wm = entities[id][0].world_matrix;
+
+    //float3x4 wm = e.world_matrix;
+    //pos.xyz = mul(wm, pos);
 
     output.position = mul(view_projection_matrix, pos);
     output.world_pos = pos;
@@ -296,7 +327,7 @@ ps_output ps_texture3d_test(vs_output input) {
         if(uvw.z >= 1.0 || uvw.z <= 0.0)
             discard;
             
-        if( d <= 0.3 )    
+        if( d <= 0.3 )
             break;
     }
     float vd = (1.0 - d);
@@ -304,5 +335,11 @@ ps_output ps_texture3d_test(vs_output input) {
     output.colour.rgb = float3(taken, taken, taken);
     output.colour.a = 1.0;
 
+    return output;
+}
+
+ps_output ps_mesh_material_instanced(vs_output input) {
+    ps_output output;
+    output.colour = float4(0.0, 1.0, 0.0, 1.0);
     return output;
 }

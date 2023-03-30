@@ -44,6 +44,16 @@ import hotline.pmfx
                 sampler_wrap_linear: wrap_linear
             }
         }
+        mesh_material_instanced(mesh_debug): {
+            vs: "vs_mesh_material_instanced",
+            ps: "ps_mesh_material_instanced"
+            push_constants: [
+                "view_push_constants"
+            ]
+            static_samplers: {
+                sampler_wrap_linear: wrap_linear
+            }
+        }
         wireframe_overlay: {
             vs: vs_mesh_push_constants
             ps: ps_wireframe
@@ -112,6 +122,19 @@ import hotline.pmfx
                 view: "main_view_no_clear"
                 pipelines: ["mesh_push_constants_texture"]
                 function: "render_meshes_push_constants_texture"
+                depends_on: ["grid"]
+            }
+        }
+        mesh_material_instanced: {
+            grid: {
+                view: "main_view"
+                pipelines: ["imdraw_3d"]
+                function: "render_grid"
+            }
+            meshes: {
+                view: "main_view_no_clear"
+                pipelines: ["mesh_material_instanced"]
+                function: "render_meshes_vertex_buffer_instanced"
                 depends_on: ["grid"]
             }
         }

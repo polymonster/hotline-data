@@ -16,24 +16,46 @@ import debug.pmfx
     }
     render_target_blend_states: {
         subtract: {
-            blend_enable: true
+            blend_enabled: true
             src_blend: SrcColour
             dst_blend: DstColour
             blend_op: Subtract
         }
         rev_subtract: {
-            blend_enable: true
-            src_blend: SrcColour
-            dst_blend: DstColour
+            blend_enabled: true
+            src_blend: One
+            dst_blend: One
             blend_op: RevSubtract
         }
-    }
-    blend_states: {
-        subtract: {
-            render_target: [subtract]
+        min: {
+            blend_enabled: true
+            src_blend: One
+            dst_blend: One
+            blend_op: Min
         }
-        rev_subtract: {
-            render_target: [rev_subtract]
+        max: {
+            blend_enabled: true
+            src_blend: One
+            dst_blend: One
+            blend_op: Max
+        }
+        add_colour: {
+            blend_enabled: true
+            src_blend: SrcColour
+            dst_blend: DstColour
+            blend_op: Add
+        }
+        add_constant: {
+            blend_enabled: true
+            src_blend: SrcColour
+            dst_blend: One
+            blend_op: Add
+        }
+        max_colour: {
+            blend_enabled: true
+            src_blend: SrcColour
+            dst_blend: DstColour
+            blend_op: Max
         }
     }
     pipelines: {
@@ -86,6 +108,18 @@ import debug.pmfx
         blend_rev_subtract(blend_disabled): {
             blend_state: rev_subtract
         }
+        blend_min(blend_disabled): {
+            blend_state: min
+        }
+        blend_max(blend_disabled): {
+            blend_state: max
+        }
+        blend_max_colour(blend_disabled): {
+            blend_state: max_colour
+        }
+        blend_add_constant(blend_disabled): {
+            blend_state: add_constant
+        }
     }
     render_graphs: {
         raster_test: {
@@ -115,7 +149,9 @@ import debug.pmfx
                     "blend_additive"
                     "blend_alpha"
                     "blend_subtract"
-                    "blend_rev_subtract" 
+                    "blend_rev_subtract"
+                    "blend_min"
+                    "blend_max"
                 ]
                 function: "render_meshes_pipeline_coloured"
                 depends_on: ["grid"]
