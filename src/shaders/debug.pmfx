@@ -53,6 +53,12 @@ import hotline.pmfx
             static_samplers: {
                 sampler_wrap_linear: wrap_linear
             }
+            vertex_layout: {
+                vs_input_entity_ids: {
+                    input_slot: 1
+                    input_slot_class: "PerInstance"
+                }
+            }
         }
         wireframe_overlay: {
             vs: vs_mesh_push_constants

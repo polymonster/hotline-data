@@ -45,7 +45,7 @@ struct cbuffer_instance_data {
 };
 
 struct entity_data {
-    float3x4 world_matrix;
+    float3x4 entity_world_matrix;
     uint4    ids;
 };
 
@@ -95,19 +95,16 @@ vs_output vs_mesh_push_constants(vs_input_mesh input) {
 vs_output vs_mesh_material_instanced(vs_input_mesh input, vs_input_entity_ids entity_input) {
     vs_output output;
 
-    float4 pos = float4(input.position.xyz, 1.0);
     uint id = entity_input.ids[0];
-    //uint material_id = entities[id].ids[0];
-
-    float3x4 wm = entities[id][0].world_matrix;
-
-    //float3x4 wm = e.world_matrix;
-    //pos.xyz = mul(wm, pos);
+    float3x4 wm = entities[id][0].entity_world_matrix;
+    
+    float4 pos = float4(input.position.xyz, 1.0);
+    pos.xyz = mul(wm, pos);
 
     output.position = mul(view_projection_matrix, pos);
     output.world_pos = pos;
     output.texcoord = float4(input.texcoord, 0.0, 0.0);
-    output.colour = material_colour;
+    output.colour = wm[0];
     output.normal = input.normal.xyz;
     
     return output;
@@ -340,6 +337,6 @@ ps_output ps_texture3d_test(vs_output input) {
 
 ps_output ps_mesh_material_instanced(vs_output input) {
     ps_output output;
-    output.colour = float4(0.0, 1.0, 0.0, 1.0);
+    output.colour = float4(input.colour.xyz, 1.0);
     return output;
 }
