@@ -40,15 +40,23 @@ cbuffer draw_push_constants : register(b1) {
     uint4    draw_indices;
 };
 
+// move to test.hlsl
 struct cbuffer_instance_data {
     float3x4 cbuffer_world_matrix[1024];
 };
 
 struct entity_data {
     float3x4 entity_world_matrix;
-    uint4    ids;
 };
 
+struct buffer_ids {
+    uint draw_buffer;
+    uint material_buffer;
+    uint light_buffer;
+    uint unused_id_0;
+};
+
+ConstantBuffer<buffer_ids> buffer_ids_push_constants : register(b1);
 ConstantBuffer<cbuffer_instance_data> cbuffer_instance : register(b1);
 
 // alias texture types on t0
@@ -95,8 +103,10 @@ vs_output vs_mesh_push_constants(vs_input_mesh input) {
 vs_output vs_mesh_material_instanced(vs_input_mesh input, vs_input_entity_ids entity_input) {
     vs_output output;
 
-    uint id = entity_input.ids[0];
-    float3x4 wm = entities[id][0].entity_world_matrix;
+    uint draw_buffer_id = buffer_ids_push_constants.draw_buffer;
+    uint entity_id = entity_input.ids[0];
+
+    float3x4 wm = entities[draw_buffer_id][entity_id].entity_world_matrix;
     
     float4 pos = float4(input.position.xyz, 1.0);
     pos.xyz = mul(wm, pos);
@@ -104,7 +114,7 @@ vs_output vs_mesh_material_instanced(vs_input_mesh input, vs_input_entity_ids en
     output.position = mul(view_projection_matrix, pos);
     output.world_pos = pos;
     output.texcoord = float4(input.texcoord, 0.0, 0.0);
-    output.colour = wm[0];
+    output.colour = wm[0] * 0.5 + 0.5;
     output.normal = input.normal.xyz;
     
     return output;
@@ -234,7 +244,7 @@ ps_output ps_checkerboard(vs_output input) {
 ps_output ps_cubemap_test(vs_output input) {
     ps_output output;
 
-    (textures);
+    // (textures);
 
     float4 col = cubemaps[draw_indices.x]
         .SampleLevel(sampler_wrap_linear, input.normal, draw_indices.y);
@@ -337,6 +347,6 @@ ps_output ps_texture3d_test(vs_output input) {
 
 ps_output ps_mesh_material_instanced(vs_output input) {
     ps_output output;
-    output.colour = float4(input.colour.xyz, 1.0);
+    output.colour = input.colour;
     return output;
 }

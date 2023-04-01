@@ -49,6 +49,7 @@ import hotline.pmfx
             ps: "ps_mesh_material_instanced"
             push_constants: [
                 "view_push_constants"
+                "buffer_ids_push_constants"
             ]
             static_samplers: {
                 sampler_wrap_linear: wrap_linear
@@ -140,7 +141,20 @@ import hotline.pmfx
             meshes: {
                 view: "main_view_no_clear"
                 pipelines: ["mesh_material_instanced"]
-                function: "render_meshes_vertex_buffer_instanced"
+                function: "render_meshes_bindless_material"
+                depends_on: ["grid"]
+            }
+        }
+        mesh_material_instanced_dbg: {
+            grid: {
+                view: "main_view"
+                pipelines: ["imdraw_3d"]
+                function: "render_grid"
+            }
+            meshes: {
+                view: "main_view_no_clear"
+                pipelines: ["mesh_material_instanceddd"]
+                function: "render_meshes_bindless_material"
                 depends_on: ["grid"]
             }
         }
