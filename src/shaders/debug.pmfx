@@ -5,7 +5,7 @@ import hotline.pmfx
     ]
     pipelines: {
         mesh_debug: {
-            vs: vs_mesh_push_constants
+            vs: vs_mesh
             ps: ps_checkerboard
             push_constants: [
                 "view_push_constants"
@@ -34,8 +34,8 @@ import hotline.pmfx
             ]
         }
         mesh_push_constants_texture(mesh_debug): {
-            vs: vs_mesh_push_constants
-            ps: ps_mesh_push_constants_texture
+            vs: vs_mesh
+            ps: ps_texture2d
             push_constants: [
                 "view_push_constants"
                 "draw_push_constants"
@@ -45,8 +45,8 @@ import hotline.pmfx
             }
         }
         mesh_material_instanced(mesh_debug): {
-            vs: "vs_mesh_material_instanced",
-            ps: "ps_mesh_material_instanced"
+            vs: "vs_mesh_material",
+            ps: "ps_mesh_material"
             push_constants: [
                 "view_push_constants"
                 "buffer_ids_push_constants"
@@ -62,7 +62,7 @@ import hotline.pmfx
             }
         }
         wireframe_overlay: {
-            vs: vs_mesh_push_constants
+            vs: vs_mesh
             ps: ps_wireframe
             push_constants: [
                 "view_push_constants"

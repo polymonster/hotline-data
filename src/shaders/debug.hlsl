@@ -25,6 +25,15 @@ struct vs_output {
     float3 normal: TEXCOORD3;
 };
 
+struct vs_output_material {
+    float4 position : SV_POSITION0;
+    float4 world_pos: TEXCOORD0;
+    float4 texcoord: TEXCOORD1;
+    float4 colour: TEXCOORD2;
+    float3 normal: TEXCOORD3;
+    uint4  ids: TEXCOORD4;
+};
+
 struct ps_output {
     float4 colour : SV_Target;
 };
@@ -49,6 +58,13 @@ struct entity_data {
     float3x4 entity_world_matrix;
 };
 
+struct material_data {
+    uint albedo_id;
+    uint normal_id;
+    uint roughness_id;
+    uint padding;
+}
+
 struct buffer_ids {
     uint draw_buffer;
     uint material_buffer;
@@ -64,7 +80,10 @@ Texture2D textures[] : register(t0);
 TextureCube cubemaps[] : register(t0);
 Texture2DArray texture_arrays[] : register(t0);
 Texture3D volume_textures[] : register(t0);
+
 StructuredBuffer<entity_data> entities[] : register(t0);
+StructuredBuffer<material_data> materials[] : register(t0, space1);
+Texture2D textures_debug[] : register(t1);
 
 SamplerState sampler_wrap_linear : register(s0);
 
@@ -83,7 +102,11 @@ float3 uv_gradient(float x) {
     return rgb_uv;
 }
 
-vs_output vs_mesh_push_constants(vs_input_mesh input) {
+float3 chebyshev_normalize(float3 v) {
+    return (v.xyz / max(max(abs(v.x), abs(v.y)), abs(v.z)));
+}
+
+vs_output vs_mesh(vs_input_mesh input) {
     vs_output output;
 
     float3x4 wm = world_matrix;
@@ -100,22 +123,27 @@ vs_output vs_mesh_push_constants(vs_input_mesh input) {
     return output;
 }
 
-vs_output vs_mesh_material_instanced(vs_input_mesh input, vs_input_entity_ids entity_input) {
-    vs_output output;
+vs_output_material vs_mesh_material(vs_input_mesh input, vs_input_entity_ids entity_input) {
+    vs_output_material output;
 
+    // draw call lookup
     uint draw_buffer_id = buffer_ids_push_constants.draw_buffer;
     uint entity_id = entity_input.ids[0];
-
     float3x4 wm = entities[draw_buffer_id][entity_id].entity_world_matrix;
-    
     float4 pos = float4(input.position.xyz, 1.0);
     pos.xyz = mul(wm, pos);
+
+    // material lookup
+    uint material_buffer_id = buffer_ids_push_constants.material_buffer;
+    uint material_id = entity_input.ids[1];
+    material_data mat = materials[material_buffer_id][material_id];
 
     output.position = mul(view_projection_matrix, pos);
     output.world_pos = pos;
     output.texcoord = float4(input.texcoord, 0.0, 0.0);
     output.colour = wm[0] * 0.5 + 0.5;
     output.normal = input.normal.xyz;
+    output.ids = uint4(mat.albedo_id, mat.normal_id, mat.roughness_id, mat.padding);
     
     return output;
 }
@@ -172,35 +200,15 @@ vs_output vs_mesh_cbuffer_instanced(vs_input_mesh input, uint iid: SV_InstanceID
     return output;
 }
 
-ps_output ps_main(vs_output input) {
+ps_output ps_constant_colour(vs_output input) {
     ps_output output;
     output.colour = input.colour;
-
-    return output;
-}
-
-ps_output ps_mesh_push_constants_texture(vs_output input) {
-    ps_output output;
-
-    float2 tc = input.texcoord.xy;
-    float4 albedo = textures[draw_indices.x].Sample(sampler_wrap_linear, tc);
-    
-    albedo *= albedo.a;
-    output.colour = albedo;
-
     return output;
 }
 
 ps_output ps_wireframe(vs_output input) {
     ps_output output;
     output.colour = float4(0.2, 0.2, 0.2, 1.0);
-
-    return output;
-}
-
-ps_output ps_constant_colour(vs_output input) {
-    ps_output output;
-    output.colour = input.colour;
     return output;
 }
 
@@ -241,10 +249,20 @@ ps_output ps_checkerboard(vs_output input) {
     return output;
 }
 
-ps_output ps_cubemap_test(vs_output input) {
+ps_output ps_texture2d(vs_output input) {
     ps_output output;
 
-    // (textures);
+    float2 tc = input.texcoord.xy;
+    float4 albedo = textures[draw_indices.x].Sample(sampler_wrap_linear, tc);
+    
+    albedo *= albedo.a;
+    output.colour = albedo;
+
+    return output;
+}
+
+ps_output ps_cubemap(vs_output input) {
+    ps_output output;
 
     float4 col = cubemaps[draw_indices.x]
         .SampleLevel(sampler_wrap_linear, input.normal, draw_indices.y);
@@ -255,10 +273,10 @@ ps_output ps_cubemap_test(vs_output input) {
     return output;
 }
 
-ps_output ps_texture2d_array_test(vs_output input) {
+ps_output ps_texture2d_array(vs_output input) {
     ps_output output;
 
-    float2 tc = float2(input.texcoord.x, 1.0 - input.texcoord.y);
+    float2 tc = float2(input.texcoord.x, input.texcoord.y);
 
     float4 col = texture_arrays[draw_indices.x]
         .Sample(sampler_wrap_linear, float3(tc, draw_indices.y));
@@ -272,11 +290,7 @@ ps_output ps_texture2d_array_test(vs_output input) {
     return output;
 }
 
-float3 chebyshev_normalize(float3 v) {
-    return (v.xyz / max(max(abs(v.x), abs(v.y)), abs(v.z)));
-}
-
-ps_output ps_texture3d_test(vs_output input) {
+ps_output ps_texture3d(vs_output input) {
     ps_output output;
 
     (textures);
@@ -345,8 +359,19 @@ ps_output ps_texture3d_test(vs_output input) {
     return output;
 }
 
-ps_output ps_mesh_material_instanced(vs_output input) {
+ps_output ps_mesh_material(vs_output_material input) {
     ps_output output;
     output.colour = input.colour;
+
+    if (input.ids[3] == 100) {
+        output.colour = float4(0.0, 1.0, 1.0, 1.0);
+    }
+
+    (textures_debug);
+
+    float2 tc = input.texcoord.xy;
+    float4 albedo = textures_debug[input.ids[0]].Sample(sampler_wrap_linear, tc);
+    output.colour = albedo;
+
     return output;
 }

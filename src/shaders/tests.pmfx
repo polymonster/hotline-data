@@ -60,8 +60,8 @@ import debug.pmfx
     }
     pipelines: {
         cubemap_test(mesh_debug): {
-            vs: vs_mesh_push_constants
-            ps: ps_cubemap_test
+            vs: vs_mesh
+            ps: ps_cubemap
             static_samplers: {
                 sampler_wrap_linear: wrap_linear
             }
@@ -71,11 +71,11 @@ import debug.pmfx
             ]
         }
         texture2d_array_test(cubemap_test): {
-            ps: ps_texture2d_array_test
+            ps: ps_texture2d_array
         }
         texture3d_test(cubemap_test): {
             vs: vs_texture3d
-            ps: ps_texture3d_test
+            ps: ps_texture3d
             raster_state: cull_none
         }
         cull_none(mesh_debug): {
@@ -88,7 +88,7 @@ import debug.pmfx
             raster_state: cull_back
         }
         blend_disabled(cull_none): {
-            vs: vs_mesh_push_constants
+            vs: vs_mesh
             ps: ps_constant_colour
             blend_state: disabled
             push_constants: [
