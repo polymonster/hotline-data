@@ -61,6 +61,15 @@ import hotline.pmfx
                 }
             }
         }
+        mesh_lit(mesh_debug): {
+            vs: "vs_mesh",
+            ps: "ps_mesh_lit"
+            push_constants: [
+                "view_push_constants"
+                "draw_push_constants"
+                "buffer_ids_push_constants"
+            ]
+        }
         wireframe_overlay: {
             vs: vs_mesh
             ps: ps_wireframe
@@ -132,7 +141,7 @@ import hotline.pmfx
                 depends_on: ["grid"]
             }
         }
-        mesh_material_instanced: {
+        mesh_material: {
             grid: {
                 view: "main_view"
                 pipelines: ["imdraw_3d"]
@@ -145,15 +154,15 @@ import hotline.pmfx
                 depends_on: ["grid"]
             }
         }
-        mesh_material_instanced_dbg: {
+        mesh_lit: {
             grid: {
                 view: "main_view"
                 pipelines: ["imdraw_3d"]
                 function: "render_grid"
             }
             meshes: {
-                view: "main_view_no_clear"
-                pipelines: ["mesh_material_instanceddd"]
+                view: "main_view"
+                pipelines: ["mesh_lit"]
                 function: "render_meshes_bindless_material"
                 depends_on: ["grid"]
             }

@@ -1,13 +1,13 @@
+import hotline.pmfx
 {
     include:[
         "imdraw.hlsl"
-        "hotline.pmfx"
     ]
     depth_stencil_states: {
-        depth_test_less: {
+        depth_test_less_equal: {
             depth_enabled: true
-            depth_write_mask: "All"
-            depth_func: "Less"
+            depth_write_mask: All
+            depth_func: LessEqual
         }
     }
     pipelines: {
@@ -15,14 +15,15 @@
             vs: vs_2d
             ps: ps_main
             push_constants: ["view_push_constants"]
-            topology: "LineList"
+            topology: LineList
         }
         imdraw_3d: {
             vs: vs_3d
             ps: ps_main
             push_constants: ["view_push_constants"]
-            depth_stencil_state: depth_test_less
-            topology: "LineList"
+            depth_stencil_state: depth_test_less_equal
+            raster_state: wireframe
+            topology: LineList
         }
         imdraw_blit: {
             vs: vs_blit
@@ -30,7 +31,7 @@
             push_constants: [
                 "blit_push_constants"
             ]
-            topology: "TriangleList"
+            topology: TriangleList
         }
     }
 }

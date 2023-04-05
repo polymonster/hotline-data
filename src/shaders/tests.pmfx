@@ -1,5 +1,9 @@
 import debug.pmfx
 {
+    include: [
+        "tests.hlsl"
+        "debug.hlsl"
+    ]
     views: {
         missing_camera_view: {
             render_target: [
@@ -120,6 +124,9 @@ import debug.pmfx
         blend_add_constant(blend_disabled): {
             blend_state: add_constant
         }
+        compute_texture_write: {
+            cs: cs_blank
+        }
     }
     render_graphs: {
         raster_test: {
@@ -187,7 +194,31 @@ import debug.pmfx
                 depends_on: ["grid"]
             }
         }
-        texture3d_test(raster_test): {
+        texture3d_test: {
+            grid: {
+                view: "main_view"
+                pipelines: ["imdraw_3d"]
+                function: "render_grid"
+            }
+            sdf_meshes: {
+                view: "main_view_no_clear"
+                pipelines: [
+                    "texture3d_test"
+                ]
+                function: "render_meshes_texture3d_test"
+                depends_on: ["grid"]
+            }
+        }
+        compute_test: {
+            grid: {
+                view: "main_view"
+                pipelines: ["imdraw_3d"]
+                function: "render_grid"
+            }
+            write_texture: {
+                function: "dispatch_compute_test"
+                pipelines: ["compute_texture_write"]
+            }
             sdf_meshes: {
                 view: "main_view_no_clear"
                 pipelines: [

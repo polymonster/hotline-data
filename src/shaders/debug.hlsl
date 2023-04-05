@@ -53,6 +53,7 @@ cbuffer draw_push_constants : register(b1) {
 struct cbuffer_instance_data {
     float3x4 cbuffer_world_matrix[1024];
 };
+ConstantBuffer<cbuffer_instance_data> cbuffer_instance : register(b1);
 
 struct entity_data {
     float3x4 entity_world_matrix;
@@ -65,6 +66,12 @@ struct material_data {
     uint padding;
 }
 
+struct light_data {
+    float3 pos;
+    float  radius;
+    float4 colour;
+}
+
 struct buffer_ids {
     uint draw_buffer;
     uint material_buffer;
@@ -72,8 +79,7 @@ struct buffer_ids {
     uint unused_id_0;
 };
 
-ConstantBuffer<buffer_ids> buffer_ids_push_constants : register(b1);
-ConstantBuffer<cbuffer_instance_data> cbuffer_instance : register(b1);
+ConstantBuffer<buffer_ids> buffer_ids_push_constants : register(b2);
 
 // alias texture types on t0
 Texture2D textures[] : register(t0);
@@ -83,6 +89,7 @@ Texture3D volume_textures[] : register(t0);
 
 StructuredBuffer<entity_data> entities[] : register(t0);
 StructuredBuffer<material_data> materials[] : register(t0, space1);
+StructuredBuffer<light_data> lights[] : register(t0, space2);
 Texture2D textures_debug[] : register(t1);
 
 SamplerState sampler_wrap_linear : register(s0);
@@ -363,15 +370,32 @@ ps_output ps_mesh_material(vs_output_material input) {
     ps_output output;
     output.colour = input.colour;
 
-    if (input.ids[3] == 100) {
-        output.colour = float4(0.0, 1.0, 1.0, 1.0);
-    }
-
-    (textures_debug);
-
     float2 tc = input.texcoord.xy;
     float4 albedo = textures_debug[input.ids[0]].Sample(sampler_wrap_linear, tc);
     output.colour = albedo;
+
+    return output;
+}
+
+ps_output ps_mesh_lit(vs_output input) {
+    ps_output output;
+    output.colour = float4(0.0, 0.0, 0.0, 1.0);
+
+    uint lights_id = buffer_ids_push_constants.light_buffer;
+
+    // TODO: need to know the num of lights
+    for(int i = 0; i < 64; ++i) {
+        light_data ld = lights[lights_id][i];
+
+        float3 to_light = input.world_pos - ld.pos;
+        
+        float mag = saturate(1.0 - length(to_light) / ld.radius);
+
+        float3 l = normalize(to_light);
+        float ndotl = saturate(1.0 - dot(l, normalize(input.normal)));
+
+        output.colour += mag * ld.colour * ndotl;
+    }
 
     return output;
 }
