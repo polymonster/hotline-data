@@ -29,6 +29,12 @@
             address_v: Clamp
             address_w: Clamp
         }
+        clamp_point: {
+            filter: Point
+            address_u: Clamp
+            address_v: Clamp
+            address_w: Clamp
+        }
     }
     raster_states: {
         wireframe: {

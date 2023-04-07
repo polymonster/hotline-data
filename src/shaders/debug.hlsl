@@ -1,3 +1,5 @@
+#include "maths.hlsl"
+
 struct vs_input_mesh {
     float3 position : POSITION;
     float2 texcoord: TEXCOORD0;
@@ -297,12 +299,9 @@ ps_output ps_texture2d_array(vs_output input) {
     return output;
 }
 
-ps_output ps_texture3d(vs_output input) {
+ps_output ps_volume_texture_ray_march_sdf(vs_output input) {
     ps_output output;
 
-    (textures);
-    (texture_arrays);
-    
     float3 v = input.texcoord.xyz;
     float3 chebyshev_norm = chebyshev_normalize(v);
     float3 uvw = chebyshev_norm * 0.5 + 0.5;
@@ -366,6 +365,61 @@ ps_output ps_texture3d(vs_output input) {
     return output;
 }
 
+ps_output ps_volume_texture_ray_march(vs_output input) {
+    ps_output output;
+    
+    float depth = 1.0;
+    float max_samples = 256.0;
+        
+    float3 v = input.texcoord.xyz;
+    float3 chebyshev_norm = chebyshev_normalize(v);
+    float3 uvw = chebyshev_norm * 0.5 + 0.5;
+    
+    float3x3 inv_rot;
+    inv_rot[0] = world_matrix[0].xyz;
+    inv_rot[1] = world_matrix[1].xyz;
+    inv_rot[2] = world_matrix[2].xyz;
+    inv_rot = transpose(inv_rot);
+        
+    float3 ray_dir = normalize(input.world_pos.xyz - view_position.xyz);    
+    ray_dir = mul( inv_rot, ray_dir );
+    
+    float3 ray_step = chebyshev_normalize(ray_dir.xyz) / max_samples;
+                
+    float depth_step = 1.0 / max_samples;
+    
+    float3 vddx = ddx( uvw );
+    float3 vddy = ddy( uvw );
+    
+    for(int s = 0; s < int(max_samples); ++s )
+    {
+        output.colour = 
+            volume_textures[draw_indices.x].SampleGrad(sampler_wrap_linear, uvw, vddx, vddy);
+        
+        if(output.colour.a != 0.0)
+            break;
+        
+        depth -= depth_step;
+        uvw += ray_step;
+        
+        if(uvw.x > 1.0 || uvw.x < 0.0)
+            discard;
+            
+        if(uvw.y > 1.0 || uvw.y < 0.0)
+            discard;
+            
+        if(uvw.z > 1.0 || uvw.z < 0.0)
+            discard;
+        
+        if(s == int(max_samples)-1)
+            discard;
+    }
+    
+    output.colour.rgb *= lerp( 0.5, 1.0, depth );
+            
+    return output;
+}
+
 ps_output ps_mesh_material(vs_output_material input) {
     ps_output output;
     output.colour = input.colour;
@@ -377,25 +431,42 @@ ps_output ps_mesh_material(vs_output_material input) {
     return output;
 }
 
-ps_output ps_mesh_lit(vs_output input) {
+ ps_output ps_mesh_lit(vs_output input) {
     ps_output output;
-    output.colour = float4(0.0, 0.0, 0.0, 1.0);
+    output.colour = input.colour;
 
     uint lights_id = buffer_ids_push_constants.light_buffer;
 
+    float ks = 2.0;
+    float shininess = 32.0;
+    float roughness = 0.1;
+    float k = 0.3;
+
+    float3 v = normalize(input.world_pos.xyz - view_position.xyz);
+    float3 n = input.normal;
+
     // TODO: need to know the num of lights
     for(int i = 0; i < 64; ++i) {
-        light_data ld = lights[lights_id][i];
+        light_data light = lights[lights_id][i];
 
-        float3 to_light = input.world_pos - ld.pos;
+        float3 l = normalize(input.world_pos.xyz - light.pos);
+
+        float diffuse = lambert(l, n);
+        //float diffuse = oren_nayar(l, n, v, 1.0, roughness);
+
+        //float specular = phong(l, n, v, ks, shininess);
+        //float specular = blinn(l, n, v, ks, shininess);
+        float specular = cook_torrence(l, n, v, roughness, k);
+
+        float atteniuation = point_light_attenuation(
+            light.pos,
+            light.radius,
+            input.world_pos
+        );
         
-        float mag = saturate(1.0 - length(to_light) / ld.radius);
-
-        float3 l = normalize(to_light);
-        float ndotl = saturate(1.0 - dot(l, normalize(input.normal)));
-
-        output.colour += mag * ld.colour * ndotl;
+        output.colour += atteniuation * light.colour * diffuse;
+        output.colour += atteniuation * light.colour * specular;
     }
 
     return output;
-}
+ }

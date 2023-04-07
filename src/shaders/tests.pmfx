@@ -79,7 +79,15 @@ import debug.pmfx
         }
         texture3d_test(cubemap_test): {
             vs: vs_texture3d
-            ps: ps_texture3d
+            ps: ps_volume_texture_ray_march_sdf
+            raster_state: cull_none
+        }
+        volume_ray_march(cubemap_test): {
+            vs: vs_texture3d
+            ps: ps_volume_texture_ray_march
+            static_samplers: {
+                sampler_wrap_linear: clamp_point
+            }
             raster_state: cull_none
         }
         cull_none(mesh_debug): {
@@ -124,8 +132,8 @@ import debug.pmfx
         blend_add_constant(blend_disabled): {
             blend_state: add_constant
         }
-        compute_texture_write: {
-            cs: cs_blank
+        compute_write_texture3d: {
+            cs: cs_write_texture3d
         }
     }
     render_graphs: {
@@ -217,12 +225,12 @@ import debug.pmfx
             }
             write_texture: {
                 function: "dispatch_compute_test"
-                pipelines: ["compute_texture_write"]
+                pipelines: ["compute_write_texture3d"]
             }
             sdf_meshes: {
                 view: "main_view_no_clear"
                 pipelines: [
-                    "texture3d_test"
+                    "volume_ray_march"
                 ]
                 function: "render_meshes_texture3d_test"
                 depends_on: ["grid"]
