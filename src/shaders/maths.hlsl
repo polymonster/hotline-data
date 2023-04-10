@@ -250,6 +250,33 @@ float point_light_attenuation_cutoff(float3 light_pos, float radius, float3 worl
     return max(attenuation, 0.0);
 }
 
+float spot_light_attenuation(
+    float3 l,
+    float3 spot_dir,
+    float  cutoff,
+    float  falloff
+) {
+    float dp = (1.0 - dot(l, spot_dir));
+    return smoothstep(cutoff, cutoff - falloff, dp);
+}
+
+float spot_light_attenuation2(
+    float3 light_pos,
+    float3 light_dir,
+    float  cutoff,
+    float  falloff,
+    float3 world_pos)
+{
+    float co = cutoff;
+    
+    float3 vl = normalize(world_pos.xyz - light_pos.xyz);
+    float3 sd = normalize(light_dir.xyz);
+    
+    float dp = (1.0 - dot(vl, sd));
+
+    return smoothstep(co, co - falloff, dp);
+}
+
 // creates a crt scaline effect, returning src modulated, `tc` defines 0-1 uv space and tscale defines
 // the scale of the crt texel size, use 1.0/image_size for 1:1 mapping, but you can tweak that for different effects
 float3 crt_c(float3 src, float2 tc, float2 tscale) {

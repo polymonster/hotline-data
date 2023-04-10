@@ -57,7 +57,7 @@ struct cbuffer_instance_data {
 };
 ConstantBuffer<cbuffer_instance_data> cbuffer_instance : register(b1);
 
-struct entity_data {
+struct draw_data {
     float3x4 entity_world_matrix;
 };
 
@@ -66,22 +66,32 @@ struct material_data {
     uint normal_id;
     uint roughness_id;
     uint padding;
-}
+};
 
-struct light_data {
+// the x value holds the srv index to look up in materials[] etc and the y component holds the count in the buffer
+struct world_buffer_info_data {
+    uint2 draw;
+    uint2 material;
+    uint2 point_light;
+    uint2 spot_light;
+    uint2 directional_light;
+};
+
+struct point_light_data {
     float3 pos;
     float  radius;
     float4 colour;
-}
-
-struct buffer_ids {
-    uint draw_buffer;
-    uint material_buffer;
-    uint light_buffer;
-    uint unused_id_0;
 };
 
-ConstantBuffer<buffer_ids> buffer_ids_push_constants : register(b2);
+struct spot_light_data {
+    float3 pos;
+    float  cutoff;
+    float3 dir;
+    float  falloff;
+    float4 colour;
+};
+
+ConstantBuffer<world_buffer_info_data> world_buffer_info : register(b2);
 
 // alias texture types on t0
 Texture2D textures[] : register(t0);
@@ -89,9 +99,11 @@ TextureCube cubemaps[] : register(t0);
 Texture2DArray texture_arrays[] : register(t0);
 Texture3D volume_textures[] : register(t0);
 
-StructuredBuffer<entity_data> entities[] : register(t0);
+StructuredBuffer<draw_data> draws[] : register(t0, space0);
 StructuredBuffer<material_data> materials[] : register(t0, space1);
-StructuredBuffer<light_data> lights[] : register(t0, space2);
+StructuredBuffer<point_light_data> point_lights[] : register(t0, space2);
+StructuredBuffer<spot_light_data> spot_lights[] : register(t0, space3);
+
 Texture2D textures_debug[] : register(t1);
 
 SamplerState sampler_wrap_linear : register(s0);
@@ -136,14 +148,14 @@ vs_output_material vs_mesh_material(vs_input_mesh input, vs_input_entity_ids ent
     vs_output_material output;
 
     // draw call lookup
-    uint draw_buffer_id = buffer_ids_push_constants.draw_buffer;
     uint entity_id = entity_input.ids[0];
-    float3x4 wm = entities[draw_buffer_id][entity_id].entity_world_matrix;
+    uint draw_buffer_id = world_buffer_info.draw.x;
+    float3x4 wm = draws[draw_buffer_id][entity_id].entity_world_matrix;
     float4 pos = float4(input.position.xyz, 1.0);
     pos.xyz = mul(wm, pos);
 
     // material lookup
-    uint material_buffer_id = buffer_ids_push_constants.material_buffer;
+    uint material_buffer_id = world_buffer_info.material.x;
     uint material_id = entity_input.ids[1];
     material_data mat = materials[material_buffer_id][material_id];
 
@@ -435,8 +447,7 @@ ps_output ps_mesh_material(vs_output_material input) {
     ps_output output;
     output.colour = input.colour;
 
-    uint lights_id = buffer_ids_push_constants.light_buffer;
-
+    int i = 0;
     float ks = 2.0;
     float shininess = 32.0;
     float roughness = 0.1;
@@ -445,23 +456,43 @@ ps_output ps_mesh_material(vs_output_material input) {
     float3 v = normalize(input.world_pos.xyz - view_position.xyz);
     float3 n = input.normal;
 
-    // TODO: need to know the num of lights
-    for(int i = 0; i < 64; ++i) {
-        light_data light = lights[lights_id][i];
+    // point lights
+    uint point_lights_id = world_buffer_info.point_light.x;
+    uint point_lights_count = world_buffer_info.point_light.y;
+    for(i = 0; i < point_lights_count; ++i) {
+        point_light_data light = point_lights[point_lights_id][i];
 
         float3 l = normalize(input.world_pos.xyz - light.pos);
 
         float diffuse = lambert(l, n);
-        //float diffuse = oren_nayar(l, n, v, 1.0, roughness);
-
-        //float specular = phong(l, n, v, ks, shininess);
-        //float specular = blinn(l, n, v, ks, shininess);
         float specular = cook_torrence(l, n, v, roughness, k);
 
         float atteniuation = point_light_attenuation(
             light.pos,
             light.radius,
             input.world_pos
+        );
+        
+        output.colour += atteniuation * light.colour * diffuse;
+        output.colour += atteniuation * light.colour * specular;
+    }
+
+    // spot lights
+    uint spot_lights_id = world_buffer_info.spot_light.x;
+    uint spot_lights_count = world_buffer_info.spot_light.y;
+    for(i = 0; i < spot_lights_count; ++i) {
+        spot_light_data light = spot_lights[spot_lights_id][i];
+
+        float3 l = normalize(input.world_pos.xyz - light.pos);
+
+        float diffuse = lambert(l, n);
+        float specular = cook_torrence(l, n, v, roughness, k);
+
+        float atteniuation = spot_light_attenuation(
+            l,
+            light.dir,
+            light.cutoff,
+            light.falloff
         );
         
         output.colour += atteniuation * light.colour * diffuse;

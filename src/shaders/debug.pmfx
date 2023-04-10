@@ -49,7 +49,7 @@ import hotline.pmfx
             ps: "ps_mesh_material"
             push_constants: [
                 "view_push_constants"
-                "buffer_ids_push_constants"
+                "world_buffer_info"
             ]
             static_samplers: {
                 sampler_wrap_linear: wrap_linear
@@ -67,7 +67,7 @@ import hotline.pmfx
             push_constants: [
                 "view_push_constants"
                 "draw_push_constants"
-                "buffer_ids_push_constants"
+                "world_buffer_info"
             ]
         }
         wireframe_overlay: {
