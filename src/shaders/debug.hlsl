@@ -91,6 +91,11 @@ struct spot_light_data {
     float4 colour;
 };
 
+struct directional_light_data {
+    float4 dir;
+    float4 colour;
+}
+
 ConstantBuffer<world_buffer_info_data> world_buffer_info : register(b2);
 
 // alias texture types on t0
@@ -103,6 +108,7 @@ StructuredBuffer<draw_data> draws[] : register(t0, space0);
 StructuredBuffer<material_data> materials[] : register(t0, space1);
 StructuredBuffer<point_light_data> point_lights[] : register(t0, space2);
 StructuredBuffer<spot_light_data> spot_lights[] : register(t0, space3);
+StructuredBuffer<directional_light_data> directional_lights[] : register(t0, space4);
 
 Texture2D textures_debug[] : register(t1);
 
@@ -497,6 +503,20 @@ ps_output ps_mesh_material(vs_output_material input) {
         
         output.colour += atteniuation * light.colour * diffuse;
         output.colour += atteniuation * light.colour * specular;
+    }
+
+    // directional lights
+    uint directional_lights_id = world_buffer_info.directional_light.x;
+    uint directional_lights_count = world_buffer_info.directional_light.y;
+    for(i = 0; i < directional_lights_count; ++i) {
+        directional_light_data light = directional_lights[directional_lights_id][i];
+
+        float3 l = light.dir;
+        float diffuse = lambert(l, n);
+        float specular = cook_torrence(l, n, v, roughness, k);
+
+        output.colour += light.colour * diffuse;
+        output.colour += light.colour * specular;
     }
 
     return output;

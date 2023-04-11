@@ -2,6 +2,10 @@
 
 RWTexture3D<float4> rwtex[] : register(u0, space0);
 
+cbuffer cbuffer_resource_indices : register(b0) {
+    uint4 srv_index;
+};
+
 // writes noise to a texture
 [numthreads(8, 8, 8)]
 void cs_write_texture3d(uint3 did : SV_DispatchThreadID) {
@@ -22,5 +26,7 @@ void cs_write_texture3d(uint3 did : SV_DispatchThreadID) {
         + abs(dot(n, float3(0.0, 0.0, 1.0))) * nxy
         + abs(dot(n, float3(1.0, 0.0, 0.0))) * nyz;
 
-    rwtex[0][did.xyz] = float4(nn, 0.0, 0.0, nn < 0.9 ? 0.0 : 1.0);
+    (srv_index);
+
+    rwtex[srv_index.x][did.xyz] = float4(nn, 0.0, 0.0, nn < 0.9 ? 0.0 : 1.0);
 }

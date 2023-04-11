@@ -4,6 +4,14 @@ import debug.pmfx
         "tests.hlsl"
         "debug.hlsl"
     ]
+    textures: {
+        compute_texture3d: {
+            width: 64,
+            height: 64,
+            depth: 64,
+            usage: [UnorderedAccess, ShaderResource]
+        }
+    }
     views: {
         missing_camera_view: {
             render_target: [
@@ -134,6 +142,7 @@ import debug.pmfx
         }
         compute_write_texture3d: {
             cs: cs_write_texture3d
+            push_constants: cbuffer_resource_indices
         }
     }
     render_graphs: {
@@ -224,8 +233,13 @@ import debug.pmfx
                 function: "render_grid"
             }
             write_texture: {
-                function: "dispatch_compute_test"
+                function: "dispatch_compute"
                 pipelines: ["compute_write_texture3d"]
+                uses: [
+                    "compute_texture3d"
+                ]
+                compute_target: "compute_texture3d"
+                thread_count: [8, 8, 8]
             }
             sdf_meshes: {
                 view: "main_view_no_clear"
