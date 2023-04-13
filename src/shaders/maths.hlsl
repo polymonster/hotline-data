@@ -18,6 +18,27 @@ float tau() {
     return 6.283185307179586;
 }
 
+// returns an rgb colour gradient for the value of x into 3 bands (like a heatmap)
+float3 uv_gradient(float x) {
+    float3 rgb_uv = float3(0.0, 0.0, 0.0);
+    float grad = x % 1.0;
+    if (grad < 0.333) {
+        rgb_uv = lerp(float3(1.0, 0, 0.0), float3(0.0, 1.0, 0.0), grad * 3.333);
+    }
+    else if (grad < 0.666) {
+        rgb_uv = lerp(float3(0.0, 1.0, 0.0), float3(0.0, 0.0, 1.0), (grad - 0.333) * 3.333);
+    }
+    else {
+        rgb_uv = lerp(float3(0.0, 0.0, 1.0), float3(1.0, 0.0, 0.0), (grad - 0.666) * 3.333);
+    }
+    return rgb_uv;
+}
+
+// returns a vector normalized / projected to a square
+float3 chebyshev_normalize(float3 v) {
+    return (v.xyz / max(max(abs(v.x), abs(v.y)), abs(v.z)));
+}
+
 // performs signed distance union of `d1` and `d2`
 float op_union(float d1, float d2) {
     return min(d1,d2);

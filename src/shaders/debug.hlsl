@@ -1,26 +1,26 @@
 #include "maths.hlsl"
 
 struct vs_input_mesh {
-    float3 position : POSITION;
+    float3 position: POSITION;
     float2 texcoord: TEXCOORD0;
-    float3 normal : TEXCOORD1;
-    float3 tangent : TEXCOORD2;
-    float3 bitangent : TEXCOORD3;
+    float3 normal: TEXCOORD1;
+    float3 tangent: TEXCOORD2;
+    float3 bitangent: TEXCOORD3;
 };
 
 struct vs_input_instance {
-    float4 row0 : TEXCOORD4;
-    float4 row1 : TEXCOORD5;
-    float4 row2 : TEXCOORD6;
-    float4 row3 : TEXCOORD7;
+    float4 row0: TEXCOORD4;
+    float4 row1: TEXCOORD5;
+    float4 row2: TEXCOORD6;
+    float4 row3: TEXCOORD7;
 };
 
 struct vs_input_entity_ids {
-    uint4 ids : TEXCOORD4;
+    uint4 ids: TEXCOORD4;
 };
 
 struct vs_output {
-    float4 position : SV_POSITION0;
+    float4 position: SV_POSITION0;
     float4 world_pos: TEXCOORD0;
     float4 texcoord: TEXCOORD1;
     float4 colour: TEXCOORD2;
@@ -28,7 +28,7 @@ struct vs_output {
 };
 
 struct vs_output_material {
-    float4 position : SV_POSITION0;
+    float4 position: SV_POSITION0;
     float4 world_pos: TEXCOORD0;
     float4 texcoord: TEXCOORD1;
     float4 colour: TEXCOORD2;
@@ -36,8 +36,17 @@ struct vs_output_material {
     uint4  ids: TEXCOORD4;
 };
 
+struct vs_output_lit {
+    float4 position: SV_POSITION0;
+    float4 world_pos: TEXCOORD0;
+    float4 texcoord: TEXCOORD1;
+    float4 normal: TEXCOORD2;
+    float4 tangent: TEXCOORD3;
+    float4 bitangent: TEXCOORD4;
+};
+
 struct ps_output {
-    float4 colour : SV_Target;
+    float4 colour: SV_Target;
 };
 
 cbuffer view_push_constants : register(b0) {
@@ -114,25 +123,6 @@ Texture2D textures_debug[] : register(t1);
 
 SamplerState sampler_wrap_linear : register(s0);
 
-float3 uv_gradient(float x) {
-    float3 rgb_uv = float3(0.0, 0.0, 0.0);
-    float grad = x % 1.0;
-    if (grad < 0.333) {
-        rgb_uv = lerp(float3(1.0, 0, 0.0), float3(0.0, 1.0, 0.0), grad * 3.333);
-    }
-    else if (grad < 0.666) {
-        rgb_uv = lerp(float3(0.0, 1.0, 0.0), float3(0.0, 0.0, 1.0), (grad - 0.333) * 3.333);
-    }
-    else {
-        rgb_uv = lerp(float3(0.0, 0.0, 1.0), float3(1.0, 0.0, 0.0), (grad - 0.666) * 3.333);
-    }
-    return rgb_uv;
-}
-
-float3 chebyshev_normalize(float3 v) {
-    return (v.xyz / max(max(abs(v.x), abs(v.y)), abs(v.z)));
-}
-
 vs_output vs_mesh(vs_input_mesh input) {
     vs_output output;
 
@@ -171,6 +161,26 @@ vs_output_material vs_mesh_material(vs_input_mesh input, vs_input_entity_ids ent
     output.colour = wm[0] * 0.5 + 0.5;
     output.normal = input.normal.xyz;
     output.ids = uint4(mat.albedo_id, mat.normal_id, mat.roughness_id, mat.padding);
+    
+    return output;
+}
+
+vs_output_lit vs_mesh_lit(vs_input_mesh input) {
+    vs_output_lit output;
+
+    float3x4 wm = world_matrix;
+    float4 pos = float4(input.position.xyz, 1.0);
+    pos.xyz = mul(wm, pos);
+
+    output.position = mul(view_projection_matrix, pos);
+    output.world_pos = pos;
+    output.texcoord = float4(input.texcoord, 0.0, 0.0);
+
+    float3x3 rot = (float3x3)wm;
+
+    output.normal = float4(normalize(mul(rot, input.normal)), 1.0);
+    output.tangent = float4(normalize(mul(rot, input.tangent)), 1.0);
+    output.bitangent = float4(normalize(mul(rot, input.bitangent)), 1.0);
     
     return output;
 }
@@ -272,6 +282,28 @@ ps_output ps_checkerboard(vs_output input) {
     //output.colour.rgb = uv_gradient(v % 1.0);
 
     output.colour.a = 1.0;
+
+    return output;
+}
+
+ps_output ps_mesh_debug_tangent_space(vs_output_lit input) {
+    ps_output output;
+    output.colour = float4(0.0, 0.0, 0.0, 0.0);
+
+    float3 ts_normal = textures[draw_indices.x].Sample(sampler_wrap_linear, input.texcoord.xy).xyz;
+    ts_normal = ts_normal * 2.0 - 1.0;
+
+    float3x3 tbn;
+    tbn[0] = input.tangent.xyz;
+    tbn[1] = input.bitangent.xyz;
+    tbn[2] = input.normal.xyz;
+
+    float3 normal = mul(ts_normal, tbn);
+
+    output.colour.rgb = normal;
+
+    //output.colour.rgb = input.normal.xyz;
+    output.colour.rgb = output.colour.rgb * 0.5 + 0.5;
 
     return output;
 }
@@ -449,7 +481,7 @@ ps_output ps_mesh_material(vs_output_material input) {
     return output;
 }
 
- ps_output ps_mesh_lit(vs_output input) {
+ps_output ps_mesh_lit(vs_output input) {
     ps_output output;
     output.colour = input.colour;
 

@@ -146,6 +146,38 @@ import debug.pmfx
         }
     }
     render_graphs: {
+        mesh_draw: {
+            grid: {
+                view: "main_view"
+                pipelines: ["imdraw_3d"]
+                function: "render_grid"
+            }
+            meshes: {
+                view: "main_view_no_clear"
+                pipelines: ["mesh_debug"]
+                function: "draw_meshes"
+                depends_on: ["grid"]
+            }
+        }
+        mesh_draw_indirect: {
+            grid: {
+                view: "main_view"
+                pipelines: ["imdraw_3d"]
+                function: "render_grid"
+            }
+            meshes: {
+                view: "main_view_no_clear"
+                pipelines: ["mesh_debug"]
+                function: "draw_meshes_indirect"
+                depends_on: ["grid"]
+            }
+            wireframe: {
+                view: "main_view_no_clear"
+                pipelines: ["wireframe_overlay"]
+                function: "render_meshes"
+                depends_on: ["meshes", "grid"]
+            }
+        }
         raster_test: {
             grid: {
                 view: "main_view"
