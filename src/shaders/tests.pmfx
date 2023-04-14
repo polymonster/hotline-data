@@ -144,6 +144,18 @@ import debug.pmfx
             cs: cs_write_texture3d
             push_constants: cbuffer_resource_indices
         }
+        mesh_test_indirect: {
+            vs: vs_mesh_indirect
+            ps: ps_checkerboard
+            push_constants: [
+                "view_push_constants"
+                "indirect_push_constants"
+                "world_buffer_info"
+            ]
+            depth_stencil_state: depth_test_less
+            raster_state: cull_back
+            topology: "TriangleList"
+        }
     }
     render_graphs: {
         mesh_draw: {
@@ -176,6 +188,19 @@ import debug.pmfx
                 pipelines: ["wireframe_overlay"]
                 function: "render_meshes"
                 depends_on: ["meshes", "grid"]
+            }
+        }
+        mesh_draw_indirect_culling: {
+            grid: {
+                view: "main_view"
+                pipelines: ["imdraw_3d"]
+                function: "render_grid"
+            }
+            meshes: {
+                view: "main_view_no_clear"
+                pipelines: ["mesh_test_indirect"]
+                function: "draw_meshes_indirect_culling"
+                depends_on: ["grid"]
             }
         }
         raster_test: {

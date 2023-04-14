@@ -553,3 +553,41 @@ ps_output ps_mesh_lit(vs_output input) {
 
     return output;
  }
+
+ // frustum culls meshes and executes indirect calls
+struct indirect_mesh {
+    uint vbv;
+    uint index_count;
+};
+
+cbuffer indirect_push_constants : register(b1) {
+    uint4 indirect_ids;
+};
+
+vs_output vs_mesh_indirect(vs_input_mesh input) {
+    vs_output output;
+
+    (indirect_ids);
+
+    // draw call lookup
+    uint entity_id = indirect_ids.x;
+    uint draw_buffer_id = world_buffer_info.draw.x;
+    float3x4 wm = draws[draw_buffer_id][entity_id].entity_world_matrix;
+    
+    float4 pos = float4(input.position.xyz, 1.0);    
+    pos.xyz = mul(wm, pos);
+
+    output.position = mul(view_projection_matrix, pos);
+    output.world_pos = pos;
+    output.texcoord = float4(input.texcoord, 0.0, 0.0);
+    output.colour = float4(1.0, 1.0, 1.0, 1.0);
+    output.normal = input.normal.xyz;
+    
+    return output;
+}
+
+[numthreads(1024, 1, 1)]
+void cs_frustum_cull(uint did : SV_DispatchThreadID) {
+    uint draw_buffer_id = world_buffer_info.draw.x;
+    float3x4 wm = draws[draw_buffer_id][did].entity_world_matrix;
+}
