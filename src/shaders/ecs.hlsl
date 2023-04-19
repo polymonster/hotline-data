@@ -36,6 +36,7 @@ struct material_data {
 // the x value holds the srv index to look up in materials[] etc and the y component holds the count in the buffer
 struct world_buffer_info_data {
     uint2 draw;
+    uint2 extent;
     uint2 material;
     uint2 point_light;
     uint2 spot_light;
@@ -72,8 +73,15 @@ struct camera_data {
     float4   planes[6];
 }
 
+// extent data
+struct extent_data {
+    float3 pos;
+    float3 extent;
+};
+
 // structures of arrays for indriect / bindless lookups
 StructuredBuffer<draw_data> draws[] : register(t0, space0);
+StructuredBuffer<extent_data> extents[] : register(t0, space0);
 StructuredBuffer<material_data> materials[] : register(t0, space1);
 StructuredBuffer<point_light_data> point_lights[] : register(t0, space2);
 StructuredBuffer<spot_light_data> spot_lights[] : register(t0, space3);
@@ -88,9 +96,14 @@ ConstantBuffer<camera_data> cameras[] : register(b3);
 // samplers
 SamplerState sampler_wrap_linear : register(s0);
 
-// utility functions to lookup entity data
+// utility functions to lookup entity draw data
 draw_data get_draw_data(uint entity_index) {
     return draws[world_buffer_info.draw.x][entity_index];
+}
+
+// utility functions to lookup entity extent data used for culling
+extent_data get_extent_data(uint entity_index) {
+    return extents[world_buffer_info.extent.x][entity_index];
 }
 
 // utility functions to lookup material data

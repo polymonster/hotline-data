@@ -69,21 +69,22 @@ void cs_frustum_cull(uint did : SV_DispatchThreadID) {
     uint index = did;
 
     // grab entity draw data
-    draw_data draw = get_draw_data(index);
+    extent_data extents = get_extent_data(index);
     camera_data main_camera = get_camera_data();
 
     // grab potential draw call
     indirect_draw input = input_draws[srv_index.y][index];
 
-    // frustum cull
-    float3 pos;
-    pos[0] = draw.world_matrix[0][3];
-    pos[1] = draw.world_matrix[1][3];
-    pos[2] = draw.world_matrix[2][3];
-    float radius = 10.0;
-
-    if(sphere_vs_frustum(pos, radius, main_camera.planes)) {
-
-        output_draws[srv_index.x].Append(input);
+    bool use_aabb = true;
+    
+    if(use_aabb) {
+        if(aabb_vs_frustum(extents.pos, extents.extent, main_camera.planes)) {
+            output_draws[srv_index.x].Append(input);
+        }
+    }
+    else {
+        if(sphere_vs_frustum(extents.pos, length(extents.extent), main_camera.planes)) {
+            output_draws[srv_index.x].Append(input);
+        }
     }
 }   
