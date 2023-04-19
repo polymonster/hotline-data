@@ -142,7 +142,14 @@ import debug.pmfx
         }
         compute_write_texture3d: {
             cs: cs_write_texture3d
-            push_constants: cbuffer_resource_indices
+            push_constants: resource_indices
+        }
+        compute_frustum_cull: {
+            cs: cs_frustum_cull
+            push_constants: [
+                resource_indices,
+                world_buffer_info
+            ]
         }
         mesh_test_indirect: {
             vs: vs_mesh_indirect
@@ -196,11 +203,16 @@ import debug.pmfx
                 pipelines: ["imdraw_3d"]
                 function: "render_grid"
             }
+            cull: {
+                function: "dispatch_compute_frustum_cull"
+                pipelines: ["compute_frustum_cull"]
+                thread_count: [128, 1, 1]
+            }
             meshes: {
                 view: "main_view_no_clear"
                 pipelines: ["mesh_test_indirect"]
                 function: "draw_meshes_indirect_culling"
-                depends_on: ["grid"]
+                depends_on: ["cull", "grid"]
             }
         }
         raster_test: {

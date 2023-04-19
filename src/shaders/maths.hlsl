@@ -18,22 +18,6 @@ float tau() {
     return 6.283185307179586;
 }
 
-// returns an rgb colour gradient for the value of x into 3 bands (like a heatmap)
-float3 uv_gradient(float x) {
-    float3 rgb_uv = float3(0.0, 0.0, 0.0);
-    float grad = x % 1.0;
-    if (grad < 0.333) {
-        rgb_uv = lerp(float3(1.0, 0, 0.0), float3(0.0, 1.0, 0.0), grad * 3.333);
-    }
-    else if (grad < 0.666) {
-        rgb_uv = lerp(float3(0.0, 1.0, 0.0), float3(0.0, 0.0, 1.0), (grad - 0.333) * 3.333);
-    }
-    else {
-        rgb_uv = lerp(float3(0.0, 0.0, 1.0), float3(1.0, 0.0, 0.0), (grad - 0.666) * 3.333);
-    }
-    return rgb_uv;
-}
-
 // returns a vector normalized / projected to a square
 float3 chebyshev_normalize(float3 v) {
     return (v.xyz / max(max(abs(v.x), abs(v.y)), abs(v.z)));
@@ -145,6 +129,58 @@ float voronoise(float2 p, float u, float v) {
     return a.x/a.y;
 }
 
+// basic rng float for given 
+float random(float2 uv) {
+    return frac(sin(dot(uv.xy, float2(12.9898, 78.233))) * 43758.5453123);
+}
+
+// 2d noise for uv coordinate
+// https://www.shadertoy.com/view/4dS3Wd
+float noise(float2 uv) {
+    float2 i = floor(uv);
+    float2 f = frac(uv);
+
+    // four corners in 2D of a tile
+    float a = random(i);
+    float b = random(i + float2(1.0, 0.0));
+    float c = random(i + float2(0.0, 1.0));
+    float d = random(i + float2(1.0, 1.0));
+
+    float2 u = f * f * (3.0 - 2.0 * f);
+
+    return lerp(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+}
+
+// fractal brownian motion for uv coordinate with n `octaves`
+// https://www.shadertoy.com/view/4dS3Wd
+float fbm(float2 uv, int octaves) {
+    float value = 0.0;
+    float amplitude = 0.3;
+    float frequency = 0.0;
+    for (int i = 0; i < octaves; i++) {
+        value += amplitude * noise(uv);
+        uv *= 3.0;
+        amplitude *= 0.8;
+    }
+    return value;
+}
+
+// returns an rgb colour gradient for the value of x into 3 bands (like a heatmap)
+float3 uv_gradient(float x) {
+    float3 rgb_uv = float3(0.0, 0.0, 0.0);
+    float grad = x % 1.0;
+    if (grad < 0.333) {
+        rgb_uv = lerp(float3(1.0, 0, 0.0), float3(0.0, 1.0, 0.0), grad * 3.333);
+    }
+    else if (grad < 0.666) {
+        rgb_uv = lerp(float3(0.0, 1.0, 0.0), float3(0.0, 0.0, 1.0), (grad - 0.333) * 3.333);
+    }
+    else {
+        rgb_uv = lerp(float3(0.0, 0.0, 1.0), float3(1.0, 0.0, 0.0), (grad - 0.666) * 3.333);
+    }
+    return rgb_uv;
+}
+
 // lambertian diffuse, where `l` is the direction from the light to the surface and `n` is the surface normal
 float lambert(float3 l, float3 n) {
     return saturate(1.0 - dot(n, l));
@@ -177,10 +213,10 @@ float blinn(
     return saturate(ks * pow(saturate(dot(half_vector, n)), shininess));
 }
 
-// cook-torrence specular term with microfacet distribution
+// cook_torrance specular term with microfacet distribution
 // where `l` is the direction from the light to the surface, `n` is the surface normal and `v` is the direction from the
 // camera to the surface, `roughness` is the surface roughness in 0-1 range and `k` is the reflectivity coefficient
-float3 cook_torrence(
+float cook_torrance(
     float3 l,
     float3 n,
     float3 v,
@@ -188,10 +224,8 @@ float3 cook_torrence(
     float k
 ) {
     l = -l;
-
     float n_dot_l = dot(n, l);
-    if( n_dot_l > 0.0f )
-    {
+    if( n_dot_l > 0.0f ) {
         float roughness_sq = roughness * roughness;
         float3 hv = normalize(-v + l);
         
@@ -218,16 +252,15 @@ float3 cook_torrence(
         // specular
         float specular = (fresnel * geom_atten * roughness_atten) / (n_dot_v * n_dot_l * pi());
         return saturate(n_dot_l * (k + specular * (1.0 - k)));
-    }
-        
-    return float3( 0.0, 0.0, 0.0 );
+    }   
+    return 0.0;
 }
 
 // oren nayar diffuse to model reflection from rough surfaces
 // where `l` is the direction from the light to the surface, `n` is the surface normal 
 // `v` is the direction from the camera to the surface, `lum` represents the surface luminosity
 // and `roughness` controls surface roughness in 0-1 range
-float3 oren_nayar(
+float oren_nayar(
     float3 l,
     float3 n,
     float3 v,
@@ -246,7 +279,7 @@ float3 oren_nayar(
     float A = 1.0 + sigma2 * (lum / (sigma2 + 0.13) + 0.5 / (sigma2 + 0.33));
     float B = 0.45 * sigma2 / (sigma2 + 0.09);
 
-    return saturate(n_dot_l) * (A + B * s / t) / 3.141592653589793238462643;
+    return max(n_dot_l, 0.0) * (A + B * s / t) / pi();
 }
 
 // calculates point light attenuation in respect to radius, where the light pos and world pos
@@ -271,6 +304,8 @@ float point_light_attenuation_cutoff(float3 light_pos, float radius, float3 worl
     return max(attenuation, 0.0);
 }
 
+// returns a scalar attenuation coefficient for spot light, where `l` is the direction of the light to the surafce 
+// cutoff is in radians (a wider or tighter cone) and the falloff ranges 0-1 (giving softer or harder edges)
 float spot_light_attenuation(
     float3 l,
     float3 spot_dir,
@@ -279,23 +314,6 @@ float spot_light_attenuation(
 ) {
     float dp = (1.0 - dot(l, spot_dir));
     return smoothstep(cutoff, cutoff - falloff, dp);
-}
-
-float spot_light_attenuation2(
-    float3 light_pos,
-    float3 light_dir,
-    float  cutoff,
-    float  falloff,
-    float3 world_pos)
-{
-    float co = cutoff;
-    
-    float3 vl = normalize(world_pos.xyz - light_pos.xyz);
-    float3 sd = normalize(light_dir.xyz);
-    
-    float dp = (1.0 - dot(vl, sd));
-
-    return smoothstep(co, co - falloff, dp);
 }
 
 // creates a crt scaline effect, returning src modulated, `tc` defines 0-1 uv space and tscale defines
@@ -315,12 +333,30 @@ float2 bend_tc(float2 uv){
     return tc;
 }
 
-// biased sin
-float bsin(float v) {
-    return sin(v) * 0.5 + 1.0;
+// returns true if the sphere at `pos` with `radius` is inside or intersects the frustum
+// defined by 6 planes (.xyz=normal, .w=constant (distance from origin))
+bool sphere_vs_frustum(float3 pos, float radius, float4 planes[6]) {
+    for (uint p = 0; p < 6; ++p) {
+        float d = dot(pos, planes[p].xyz) + planes[p].w;
+        if (d > radius) {
+            return false;
+        }
+    }
+    return true;
 }
 
-// biased cos
-float bcos(float v) {
-    return cos(v) * 0.5 + 1.0;
+// returns true if an aabb defined by aabb_pos (centre) and aabb_extent (half extent) is inside or intersecting the frustum
+// defined by 6 planes (.xyz=plane normal, .w=constant (distance from origin))
+// implemented via info detailed in this insightful blog post: https://fgiesen.wordpress.com/2010/10/17/view-frustum-culling
+bool aabb_vs_frustum(float3 aabb_pos, float3 aabb_extent, float4 planes[6]) {
+    bool inside = true;
+    for (int p = 0; p < 6; ++p) {
+        float3 sign_flip = sign(planes[p].xyz) * -1.0f;
+        float pd = planes[p].w;
+        float d2 = dot(aabb_pos + aabb_extent * sign_flip, planes[p].xyz);
+        if (d2 > -pd) {
+            inside = false;
+        }
+    }
+    return inside;
 }

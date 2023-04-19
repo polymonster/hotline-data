@@ -1,4 +1,5 @@
 #include "maths.hlsl"
+#include "ecs.hlsl"
 
 struct vs_input_mesh {
     float3 position: POSITION;
@@ -49,79 +50,19 @@ struct ps_output {
     float4 colour: SV_Target;
 };
 
-cbuffer view_push_constants : register(b0) {
-    float4x4 view_projection_matrix;
-    float4   view_position;
-};
-
-cbuffer draw_push_constants : register(b1) {
-    float3x4 world_matrix;
-    float4   material_colour;
-    uint4    draw_indices;
-};
-
 // move to test.hlsl
 struct cbuffer_instance_data {
     float3x4 cbuffer_world_matrix[1024];
 };
 ConstantBuffer<cbuffer_instance_data> cbuffer_instance : register(b1);
 
-struct draw_data {
-    float3x4 entity_world_matrix;
-};
-
-struct material_data {
-    uint albedo_id;
-    uint normal_id;
-    uint roughness_id;
-    uint padding;
-};
-
-// the x value holds the srv index to look up in materials[] etc and the y component holds the count in the buffer
-struct world_buffer_info_data {
-    uint2 draw;
-    uint2 material;
-    uint2 point_light;
-    uint2 spot_light;
-    uint2 directional_light;
-};
-
-struct point_light_data {
-    float3 pos;
-    float  radius;
-    float4 colour;
-};
-
-struct spot_light_data {
-    float3 pos;
-    float  cutoff;
-    float3 dir;
-    float  falloff;
-    float4 colour;
-};
-
-struct directional_light_data {
-    float4 dir;
-    float4 colour;
-}
-
-ConstantBuffer<world_buffer_info_data> world_buffer_info : register(b2);
-
+// todo... 
 // alias texture types on t0
 Texture2D textures[] : register(t0);
 TextureCube cubemaps[] : register(t0);
 Texture2DArray texture_arrays[] : register(t0);
 Texture3D volume_textures[] : register(t0);
-
-StructuredBuffer<draw_data> draws[] : register(t0, space0);
-StructuredBuffer<material_data> materials[] : register(t0, space1);
-StructuredBuffer<point_light_data> point_lights[] : register(t0, space2);
-StructuredBuffer<spot_light_data> spot_lights[] : register(t0, space3);
-StructuredBuffer<directional_light_data> directional_lights[] : register(t0, space4);
-
 Texture2D textures_debug[] : register(t1);
-
-SamplerState sampler_wrap_linear : register(s0);
 
 vs_output vs_mesh(vs_input_mesh input) {
     vs_output output;
@@ -143,12 +84,10 @@ vs_output vs_mesh(vs_input_mesh input) {
 vs_output_material vs_mesh_material(vs_input_mesh input, vs_input_entity_ids entity_input) {
     vs_output_material output;
 
-    // draw call lookup
-    uint entity_id = entity_input.ids[0];
-    uint draw_buffer_id = world_buffer_info.draw.x;
-    float3x4 wm = draws[draw_buffer_id][entity_id].entity_world_matrix;
-    float4 pos = float4(input.position.xyz, 1.0);
-    pos.xyz = mul(wm, pos);
+    // get draw call info and transform world matrix
+    draw_data draw = get_draw_data(entity_input.ids[0]);
+    float4 pos = float4(input.position.xyz, 1.0);    
+    pos.xyz = mul(draw.world_matrix, pos);
 
     // material lookup
     uint material_buffer_id = world_buffer_info.material.x;
@@ -158,7 +97,7 @@ vs_output_material vs_mesh_material(vs_input_mesh input, vs_input_entity_ids ent
     output.position = mul(view_projection_matrix, pos);
     output.world_pos = pos;
     output.texcoord = float4(input.texcoord, 0.0, 0.0);
-    output.colour = wm[0] * 0.5 + 0.5;
+    output.colour = float4(1.0, 1.0, 1.0, 1.0);
     output.normal = input.normal.xyz;
     output.ids = uint4(mat.albedo_id, mat.normal_id, mat.roughness_id, mat.padding);
     
@@ -301,8 +240,6 @@ ps_output ps_mesh_debug_tangent_space(vs_output_lit input) {
     float3 normal = mul(ts_normal, tbn);
 
     output.colour.rgb = normal;
-
-    //output.colour.rgb = input.normal.xyz;
     output.colour.rgb = output.colour.rgb * 0.5 + 0.5;
 
     return output;
@@ -503,12 +440,12 @@ ps_output ps_mesh_lit(vs_output input) {
         float3 l = normalize(input.world_pos.xyz - light.pos);
 
         float diffuse = lambert(l, n);
-        float specular = cook_torrence(l, n, v, roughness, k);
+        float specular = cook_torrance(l, n, v, roughness, k);
 
         float atteniuation = point_light_attenuation(
             light.pos,
             light.radius,
-            input.world_pos
+            input.world_pos.xyz
         );
         
         output.colour += atteniuation * light.colour * diffuse;
@@ -524,7 +461,7 @@ ps_output ps_mesh_lit(vs_output input) {
         float3 l = normalize(input.world_pos.xyz - light.pos);
 
         float diffuse = lambert(l, n);
-        float specular = cook_torrence(l, n, v, roughness, k);
+        float specular = cook_torrance(l, n, v, roughness, k);
 
         float atteniuation = spot_light_attenuation(
             l,
@@ -543,51 +480,33 @@ ps_output ps_mesh_lit(vs_output input) {
     for(i = 0; i < directional_lights_count; ++i) {
         directional_light_data light = directional_lights[directional_lights_id][i];
 
-        float3 l = light.dir;
+        float3 l = light.dir.xyz;
         float diffuse = lambert(l, n);
-        float specular = cook_torrence(l, n, v, roughness, k);
+        float specular = cook_torrance(l, n, v, roughness, k);
 
         output.colour += light.colour * diffuse;
         output.colour += light.colour * specular;
     }
 
     return output;
- }
-
- // frustum culls meshes and executes indirect calls
-struct indirect_mesh {
-    uint vbv;
-    uint index_count;
-};
-
-cbuffer indirect_push_constants : register(b1) {
-    uint4 indirect_ids;
-};
+}
 
 vs_output vs_mesh_indirect(vs_input_mesh input) {
     vs_output output;
 
-    (indirect_ids);
-
-    // draw call lookup
-    uint entity_id = indirect_ids.x;
-    uint draw_buffer_id = world_buffer_info.draw.x;
-    float3x4 wm = draws[draw_buffer_id][entity_id].entity_world_matrix;
-    
+    // get draw call info and transform world matrix
+    draw_data draw = get_draw_data(indirect_ids.x);
     float4 pos = float4(input.position.xyz, 1.0);    
-    pos.xyz = mul(wm, pos);
+    pos.xyz = mul(draw.world_matrix, pos);
 
-    output.position = mul(view_projection_matrix, pos);
+    // get camera data and transform projection matrix
+    camera_data main_camera = get_camera_data();
+
+    output.position = mul(main_camera.view_projection_matrix, pos);
     output.world_pos = pos;
     output.texcoord = float4(input.texcoord, 0.0, 0.0);
     output.colour = float4(1.0, 1.0, 1.0, 1.0);
     output.normal = input.normal.xyz;
     
     return output;
-}
-
-[numthreads(1024, 1, 1)]
-void cs_frustum_cull(uint did : SV_DispatchThreadID) {
-    uint draw_buffer_id = world_buffer_info.draw.x;
-    float3x4 wm = draws[draw_buffer_id][did].entity_world_matrix;
 }
