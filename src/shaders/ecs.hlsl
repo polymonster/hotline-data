@@ -2,6 +2,20 @@
 // contains core descriptor layout to be used among different / shared ecs systems
 //
 
+// generic (fat) + non-skinned mesh vertex layout 
+struct vs_input_mesh {
+    float3 position: POSITION;
+    float2 texcoord: TEXCOORD0;
+    float3 normal: TEXCOORD1;
+    float3 tangent: TEXCOORD2;
+    float3 bitangent: TEXCOORD3;
+};
+
+// generic single target pixel shader output
+struct ps_output {
+    float4 colour: SV_Target;
+};
+
 // per view constants with basic camera transforms
 cbuffer view_push_constants : register(b0) {
     float4x4 view_projection_matrix;
@@ -15,9 +29,27 @@ cbuffer draw_push_constants : register(b1) {
     uint4    draw_indices;
 };
 
-// per indirect draw, indirect_ids.x = entity_id
+// per indirect draw, indirect_ids.x = entity_id, they alias slot b1 because they are an alternative to `draw_push_constants`
 cbuffer indirect_push_constants : register(b1) {
     uint4 indirect_ids;
+};
+
+// world id's bind on slot b2... below
+// containing ids of world buffers within the striuctured buffer arrays
+
+// resource lookup indices
+// these indices of resources used in compute shaders, then can specified in pmfx and passed as push constants
+// the names are references as uses: ["texure_name1", "texure_name2"] and passes through as srv indices
+cbuffer use_indices : register(b0) {
+    uint use_input0;
+    uint use_input1;
+    uint use_input2;
+    uint use_input3;
+    uint use_input4;
+    uint use_input5;
+    uint use_input6;
+    uint use_input7;
+    uint use_input8;
 };
 
 // bindless draw data for entites to look up by ID
@@ -81,11 +113,22 @@ struct extent_data {
 
 // structures of arrays for indriect / bindless lookups
 StructuredBuffer<draw_data> draws[] : register(t0, space0);
-StructuredBuffer<extent_data> extents[] : register(t0, space0);
-StructuredBuffer<material_data> materials[] : register(t0, space1);
-StructuredBuffer<point_light_data> point_lights[] : register(t0, space2);
-StructuredBuffer<spot_light_data> spot_lights[] : register(t0, space3);
-StructuredBuffer<directional_light_data> directional_lights[] : register(t0, space4);
+StructuredBuffer<extent_data> extents[] : register(t0, space1);
+StructuredBuffer<material_data> materials[] : register(t0, space2);
+StructuredBuffer<point_light_data> point_lights[] : register(t0, space3);
+StructuredBuffer<spot_light_data> spot_lights[] : register(t0, space4);
+StructuredBuffer<directional_light_data> directional_lights[] : register(t0, space5);
+
+// textures 
+Texture2D textures[] : register(t0, space6);
+Texture2DMS<float4, 8> msaa8x_textures[] : register(t0, space7);
+TextureCube cubemaps[] : register(t0, space8);
+Texture2DArray texture_arrays[] : register(t0, space9);
+Texture3D volume_textures[] : register(t0, space10);
+
+// uav textures
+RWTexture2D<float4> rw_textures[] : register(u0, space0);
+RWTexture3D<float4> rw_volume_textures[] : register(u0, space1);
 
 // main constants to obtain the indices of the buffer types
 ConstantBuffer<world_buffer_info_data> world_buffer_info : register(b2);

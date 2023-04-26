@@ -26,23 +26,16 @@ import hotline.pmfx
                 sampler_wrap_linear: wrap_linear
             }
         }
-        mesh_debug_vertex_buffer_instanced(mesh_debug): {
-            vs: vs_mesh_vertex_buffer_instanced
+        wireframe_overlay: {
+            vs: vs_mesh
+            ps: ps_wireframe
             push_constants: [
                 "view_push_constants"
+                "draw_push_constants"
             ]
-            vertex_layout: {
-                vs_input_instance: {
-                    input_slot: 1
-                    input_slot_class: "PerInstance"
-                }
-            }
-        }
-        mesh_debug_cbuffer_instanced(mesh_debug): {
-            vs: vs_mesh_cbuffer_instanced
-            push_constants: [
-                "view_push_constants"
-            ]
+            raster_state: wireframe
+            depth_stencil_state: depth_test_always
+            topology: "TriangleList"
         }
         mesh_push_constants_texture(mesh_debug): {
             vs: vs_mesh
@@ -81,114 +74,77 @@ import hotline.pmfx
                 "world_buffer_info"
             ]
         }
-        wireframe_overlay: {
-            vs: vs_mesh
-            ps: ps_wireframe
-            push_constants: [
-                "view_push_constants"
-                "draw_push_constants"
-            ]
-            raster_state: wireframe
-            depth_stencil_state: depth_test_always
-            topology: "TriangleList"
-        }
     }
     render_graphs: {
         mesh_debug: {
-            grid: {
+            debug: {
                 view: "main_view"
                 pipelines: ["imdraw_3d"]
-                function: "render_grid"
+                function: "render_debug"
             }
             meshes: {
                 view: "main_view_no_clear"
                 pipelines: ["mesh_debug"]
                 function: "render_meshes"
-                depends_on: ["grid"]
+                depends_on: ["debug"]
             }
             wireframe: {
                 view: "main_view_no_clear"
                 pipelines: ["wireframe_overlay"]
                 function: "render_meshes"
-                depends_on: ["meshes", "grid"]
-            }
-        }
-        mesh_debug_vertex_buffer_instanced: {
-            grid: {
-                view: "main_view"
-                pipelines: ["imdraw_3d"]
-                function: "render_grid"
-            }
-            meshes: {
-                view: "main_view_no_clear"
-                pipelines: ["mesh_debug_vertex_buffer_instanced"]
-                function: "render_meshes_vertex_buffer_instanced"
-                depends_on: ["grid"]
-            }
-        }
-        mesh_debug_cbuffer_instanced: {
-            grid: {
-                view: "main_view"
-                pipelines: ["imdraw_3d"]
-                function: "render_grid"
-            }
-            meshes: {
-                view: "main_view_no_clear"
-                pipelines: ["mesh_debug_cbuffer_instanced"]
-                function: "render_meshes_cbuffer_instanced"
-                depends_on: ["grid"]
+                depends_on: ["meshes", "debug"]
             }
         }
         mesh_push_constants_texture: {
-            grid: {
+            debug: {
                 view: "main_view"
                 pipelines: ["imdraw_3d"]
-                function: "render_grid"
+                function: "render_debug"
             }
             meshes: {
                 view: "main_view_no_clear"
                 pipelines: ["mesh_push_constants_texture"]
                 function: "render_meshes_push_constants_texture"
-                depends_on: ["grid"]
+                depends_on: ["debug"]
             }
         }
         mesh_debug_tangent_space: {
-            grid: {
+            debug: {
                 view: "main_view"
                 pipelines: ["imdraw_3d"]
-                function: "render_grid"
+                function: "render_debug"
             }
             meshes: {
                 view: "main_view_no_clear"
                 pipelines: ["mesh_debug_tangent_space"]
                 function: "render_meshes_debug_tangent_space"
-                depends_on: ["grid"]
+                depends_on: ["debug"]
             }
         }
         mesh_material: {
-            grid: {
+            debug: {
                 view: "main_view"
                 pipelines: ["imdraw_3d"]
-                function: "render_grid"
+                function: "render_debug"
             }
             meshes: {
                 view: "main_view_no_clear"
                 pipelines: ["mesh_material_instanced"]
                 function: "render_meshes_bindless_material"
-                depends_on: ["grid"]
+                depends_on: ["debug"]
             }
         }
         mesh_lit: {
-            grid: {
+            debug: {
                 view: "main_view"
                 pipelines: ["imdraw_3d"]
-                function: "render_grid"
+                function: "render_debug"
             }
             meshes: {
                 view: "main_view"
                 pipelines: ["mesh_lit"]
                 function: "render_meshes_bindless_material"
-                depends_on: ["grid"]
+                depends_on: ["debug"]
             }
         }
     }

@@ -75,3 +75,45 @@ void cs_main(uint3 did : SV_DispatchThreadID)
 {
     rwtex[6][did.xy] = float4(0.0, 0.0, 0.0, 1.0);
 }
+
+//
+// testing valid possible combinations of descriptor layouts
+//
+
+// extent data
+struct extent_data {
+    float3 pos;
+    float3 extent;
+};
+
+// draw data
+struct draw_data {
+    float3x4 world_matrix;
+};
+
+// structures of arrays for indriect / bindless lookups
+StructuredBuffer<draw_data> draws[] : register(t0, space0);
+StructuredBuffer<extent_data> extents[] : register(t0, space2);
+
+Texture2D textures : register(t1, space0);
+TextureCube volume_textures : register(t1, space1);
+
+ps_input vs_desriptor_layout_test(vs_input input) {
+    ps_input output;
+    output.position = float4(input.position, 1.0);
+    output.colour = input.colour;
+
+    pmfx_touch(draws);
+    
+    return output;
+}
+
+ps_output ps_desriptor_layout_test(ps_input input) {
+    ps_output output;
+
+    pmfx_touch(extents);
+    pmfx_touch(textures);
+    pmfx_touch(volume_textures);
+
+    return output;
+}

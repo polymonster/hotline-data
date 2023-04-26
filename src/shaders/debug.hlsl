@@ -1,21 +1,6 @@
 #include "maths.hlsl"
 #include "ecs.hlsl"
 
-struct vs_input_mesh {
-    float3 position: POSITION;
-    float2 texcoord: TEXCOORD0;
-    float3 normal: TEXCOORD1;
-    float3 tangent: TEXCOORD2;
-    float3 bitangent: TEXCOORD3;
-};
-
-struct vs_input_instance {
-    float4 row0: TEXCOORD4;
-    float4 row1: TEXCOORD5;
-    float4 row2: TEXCOORD6;
-    float4 row3: TEXCOORD7;
-};
-
 struct vs_input_entity_ids {
     uint4 ids: TEXCOORD4;
 };
@@ -34,7 +19,9 @@ struct vs_output_material {
     float4 texcoord: TEXCOORD1;
     float4 colour: TEXCOORD2;
     float3 normal: TEXCOORD3;
-    uint4  ids: TEXCOORD4;
+    float4 tangent: TEXCOORD4;
+    float4 bitangent: TEXCOORD5;
+    uint4  ids: TEXCOORD6;
 };
 
 struct vs_output_lit {
@@ -45,24 +32,6 @@ struct vs_output_lit {
     float4 tangent: TEXCOORD3;
     float4 bitangent: TEXCOORD4;
 };
-
-struct ps_output {
-    float4 colour: SV_Target;
-};
-
-// move to test.hlsl
-struct cbuffer_instance_data {
-    float3x4 cbuffer_world_matrix[1024];
-};
-ConstantBuffer<cbuffer_instance_data> cbuffer_instance : register(b1);
-
-// todo... 
-// alias texture types on t0
-Texture2D textures[] : register(t0);
-TextureCube cubemaps[] : register(t0);
-Texture2DArray texture_arrays[] : register(t0);
-Texture3D volume_textures[] : register(t0);
-Texture2D textures_debug[] : register(t1);
 
 vs_output vs_mesh(vs_input_mesh input) {
     vs_output output;
@@ -89,16 +58,17 @@ vs_output_material vs_mesh_material(vs_input_mesh input, vs_input_entity_ids ent
     float4 pos = float4(input.position.xyz, 1.0);    
     pos.xyz = mul(draw.world_matrix, pos);
 
-    // material lookup
-    uint material_buffer_id = world_buffer_info.material.x;
-    uint material_id = entity_input.ids[1];
-    material_data mat = materials[material_buffer_id][material_id];
-
     output.position = mul(view_projection_matrix, pos);
     output.world_pos = pos;
     output.texcoord = float4(input.texcoord, 0.0, 0.0);
-    output.colour = float4(1.0, 1.0, 1.0, 1.0);
-    output.normal = input.normal.xyz;
+    
+    float3x3 rot = (float3x3)draw.world_matrix;
+    output.normal = float4(normalize(mul(rot, input.normal)), 1.0);
+    output.tangent = float4(normalize(mul(rot, input.tangent)), 1.0);
+    output.bitangent = float4(normalize(mul(rot, input.bitangent)), 1.0);
+    
+    // mat
+    material_data mat = get_material_data(entity_input.ids[1]);
     output.ids = uint4(mat.albedo_id, mat.normal_id, mat.roughness_id, mat.padding);
     
     return output;
@@ -116,7 +86,6 @@ vs_output_lit vs_mesh_lit(vs_input_mesh input) {
     output.texcoord = float4(input.texcoord, 0.0, 0.0);
 
     float3x3 rot = (float3x3)wm;
-
     output.normal = float4(normalize(mul(rot, input.normal)), 1.0);
     output.tangent = float4(normalize(mul(rot, input.tangent)), 1.0);
     output.bitangent = float4(normalize(mul(rot, input.bitangent)), 1.0);
@@ -138,41 +107,6 @@ vs_output vs_texture3d(vs_input_mesh input) {
     output.colour = float4(input.normal.xyz, 1.0);
     output.normal = input.normal.xyz;
     
-    return output;
-}
-
-vs_output vs_mesh_vertex_buffer_instanced(vs_input_mesh input, vs_input_instance instance_input) {
-    vs_output output;
-
-    float3x4 instance_matrix;
-    instance_matrix[0] = instance_input.row0;
-    instance_matrix[1] = instance_input.row1;
-    instance_matrix[2] = instance_input.row2;
-
-	float4 pos = float4(input.position.xyz, 1.0);
-    pos.xyz = mul(instance_matrix, pos);
-
-    output.position = mul(view_projection_matrix, pos);
-    output.world_pos = pos;
-    output.texcoord = float4(input.texcoord, 0.0, 0.0);
-    output.colour = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
-    output.normal = input.normal.xyz;
-    
-    return output;
-}
-
-vs_output vs_mesh_cbuffer_instanced(vs_input_mesh input, uint iid: SV_InstanceID) {
-    vs_output output;
-
-	float4 pos = float4(input.position.xyz, 1.0);
-    pos.xyz = mul(cbuffer_instance.cbuffer_world_matrix[iid], pos);
-
-    output.position = mul(view_projection_matrix, pos);
-    output.world_pos = pos;
-    output.texcoord = float4(input.texcoord, 0.0, 0.0);
-    output.colour = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
-    output.normal = input.normal.xyz;
-
     return output;
 }
 
@@ -409,11 +343,55 @@ ps_output ps_volume_texture_ray_march(vs_output input) {
 
 ps_output ps_mesh_material(vs_output_material input) {
     ps_output output;
-    output.colour = input.colour;
+    output.colour = float4(0.0, 0.0, 0.0, 0.0);
 
     float2 tc = input.texcoord.xy;
-    float4 albedo = textures_debug[input.ids[0]].Sample(sampler_wrap_linear, tc);
-    output.colour = albedo;
+    
+    // sample maps
+
+    // albedo
+    float4 albedo = textures[input.ids.x].Sample(sampler_wrap_linear, tc);
+
+    // normal
+    float3 ts_normal = textures[input.ids.y].Sample(sampler_wrap_linear, tc).xyz;
+    ts_normal = ts_normal * 2.0 - 1.0;
+
+    float3x3 tbn;
+    tbn[0] = input.tangent.xyz;
+    tbn[1] = input.bitangent.xyz;
+    tbn[2] = input.normal.xyz;
+    float3 n = mul(ts_normal, tbn);
+
+    // roughness
+    float roughness = textures[input.ids.z].Sample(sampler_wrap_linear, tc).r;
+
+    float k = 0.3;
+    float3 v = normalize(input.world_pos.xyz - view_position.xyz);
+
+    // point lights
+    uint point_lights_id = world_buffer_info.point_light.x;
+    uint point_lights_count = world_buffer_info.point_light.y;
+
+    if(point_lights_id != 0) {
+        int i = 0;
+        for(i = 0; i < point_lights_count; ++i) {
+            point_light_data light = point_lights[point_lights_id][i];
+
+            float3 l = normalize(input.world_pos.xyz - light.pos);
+
+            float diffuse = lambert(l, n);
+            float specular = cook_torrance(l, n, v, roughness, k);
+
+            float atteniuation = point_light_attenuation(
+                light.pos,
+                light.radius,
+                input.world_pos.xyz
+            );
+            
+            output.colour += atteniuation * light.colour * diffuse * albedo;
+            output.colour += atteniuation * light.colour * specular;
+        }
+    }
 
     return output;
 }

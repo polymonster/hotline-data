@@ -1,0 +1,10 @@
+{
+    include: [
+        "util.hlsl"
+    ]
+    pipelines: {
+        mip_chain_texture2d: {
+            cs: cs_mip_chain_texture2d
+        }
+    }
+}

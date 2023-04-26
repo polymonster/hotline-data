@@ -79,6 +79,7 @@
         main_depth(main_colour): {
             format: D24nS8u
             usage: ["ShaderResource", "DepthStencil"]
+            generate_mips: false
         }
     }
     views: {
