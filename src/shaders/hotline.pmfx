@@ -5,6 +5,11 @@
             depth_write_mask: All
             depth_func: Less
         }
+        depth_test_greater: {
+            depth_enabled: true
+            depth_write_mask: All
+            depth_func: Greater
+        }
         depth_test_equal: {
             depth_enabled: true
             depth_write_mask: All
@@ -87,7 +92,8 @@
             render_target: [
                 main_colour
             ]
-            clear_colour: [0.45, 0.55, 0.60, 1.0]
+            // clear_colour: [0.45, 0.55, 0.60, 1.0]
+            clear_colour: [0.0, 0.0, 0.0, 1.0]
             depth_stencil: [
                 main_depth
             ]

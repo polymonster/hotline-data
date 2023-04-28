@@ -9,30 +9,30 @@ struct vs_input_mesh {
     float3 normal: TEXCOORD1;
     float3 tangent: TEXCOORD2;
     float3 bitangent: TEXCOORD3;
-};
+}
 
 // generic single target pixel shader output
 struct ps_output {
     float4 colour: SV_Target;
-};
+}
 
 // per view constants with basic camera transforms
 cbuffer view_push_constants : register(b0) {
     float4x4 view_projection_matrix;
     float4   view_position;
-};
+}
 
 // per entity draw constants used in CPU draw calls
 cbuffer draw_push_constants : register(b1) {
     float3x4 world_matrix;
     float4   material_colour;
     uint4    draw_indices;
-};
+}
 
 // per indirect draw, indirect_ids.x = entity_id, they alias slot b1 because they are an alternative to `draw_push_constants`
 cbuffer indirect_push_constants : register(b1) {
     uint4 indirect_ids;
-};
+}
 
 // world id's bind on slot b2... below
 // containing ids of world buffers within the striuctured buffer arrays
@@ -40,22 +40,28 @@ cbuffer indirect_push_constants : register(b1) {
 // resource lookup indices
 // these indices of resources used in compute shaders, then can specified in pmfx and passed as push constants
 // the names are references as uses: ["texure_name1", "texure_name2"] and passes through as srv indices
-cbuffer use_indices : register(b0) {
-    uint use_input0;
-    uint use_input1;
-    uint use_input2;
-    uint use_input3;
-    uint use_input4;
-    uint use_input5;
-    uint use_input6;
-    uint use_input7;
-    uint use_input8;
-};
+struct resource_use {
+    uint  index;
+    uint3 dimension;
+}
+
+struct resource_uses {
+    resource_use input0;
+    resource_use input1;
+    resource_use input2;
+    resource_use input3;
+    resource_use input4;
+    resource_use input5;
+    resource_use input6;
+    resource_use input7;
+}
+
+ConstantBuffer<resource_uses> resources: register(b0);
 
 // bindless draw data for entites to look up by ID
 struct draw_data {
     float3x4 world_matrix;
-};
+}
 
 // bindless material ID's which can be looked up into textures array
 struct material_data {
@@ -63,7 +69,7 @@ struct material_data {
     uint normal_id;
     uint roughness_id;
     uint padding;
-};
+}
 
 // the x value holds the srv index to look up in materials[] etc and the y component holds the count in the buffer
 struct world_buffer_info_data {
@@ -74,14 +80,14 @@ struct world_buffer_info_data {
     uint2 spot_light;
     uint2 directional_light;
     uint2 camera;
-};
+}
 
 // point light parameters
 struct point_light_data {
     float3 pos;
     float  radius;
     float4 colour;
-};
+}
 
 // spot light parameters
 struct spot_light_data {
@@ -90,7 +96,7 @@ struct spot_light_data {
     float3 dir;
     float  falloff;
     float4 colour;
-};
+}
 
 // directional light data
 struct directional_light_data {
@@ -109,7 +115,7 @@ struct camera_data {
 struct extent_data {
     float3 pos;
     float3 extent;
-};
+}
 
 // structures of arrays for indriect / bindless lookups
 StructuredBuffer<draw_data> draws[] : register(t0, space0);

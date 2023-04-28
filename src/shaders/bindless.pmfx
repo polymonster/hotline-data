@@ -26,9 +26,5 @@
         compute_rw: {
             cs: "cs_main"
         }
-        desriptor_layout_test: {
-            vs: vs_desriptor_layout_test
-            ps: ps_desriptor_layout_test
-        }
     }
 }

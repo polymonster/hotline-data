@@ -58,7 +58,7 @@ import debug.pmfx
             depth_stencil: [
                 gbuffer_depth
             ]
-            clear_depth: 1.0
+            clear_depth: 0.0
             viewport: [0.0, 0.0, 1.0, 1.0, 0.0, 1.0]
             camera: main_camera
         }
@@ -207,23 +207,28 @@ import debug.pmfx
         }
         compute_write_texture3d: {
             cs: cs_write_texture3d
-            push_constants: use_indices
+            push_constants: [
+                resources
+            ]
         }
         compute_frustum_cull: {
             cs: cs_frustum_cull
             push_constants: [
-                use_indices,
+                resources
                 world_buffer_info
             ]
         }
         mesh_test_indirect: {
-            vs: vs_mesh_indirect
-            ps: ps_checkerboard
+            vs: vs_mesh_material_indirect
+            ps: ps_mesh_material
             push_constants: [
                 "view_push_constants"
                 "indirect_push_constants"
                 "world_buffer_info"
             ]
+            static_samplers: {
+                sampler_wrap_linear: wrap_linear
+            }
             depth_stencil_state: depth_test_less
             raster_state: cull_back
             topology: "TriangleList"
@@ -234,6 +239,7 @@ import debug.pmfx
             static_samplers: {
                 sampler_wrap_linear: wrap_linear
             }
+            depth_stencil_state: depth_test_greater
             push_constants: [
                 "view_push_constants"
                 "draw_push_constants"
@@ -242,7 +248,7 @@ import debug.pmfx
         heightmap_mrt_resolve: {
             cs: cs_heightmap_mrt_resolve
             push_constants: [
-                use_indices
+                resources
             ]
         }
     }
@@ -304,7 +310,6 @@ import debug.pmfx
             cull: {
                 function: "dispatch_compute_frustum_cull"
                 pipelines: ["compute_frustum_cull"]
-                thread_count: [128, 1, 1]
             }
             meshes: {
                 view: "main_view_no_clear"
@@ -376,7 +381,6 @@ import debug.pmfx
                     ["compute_texture3d", "Write"]
                 ]
                 target_dimension: "compute_texture3d"
-                thread_count: [8, 8, 8]
             }
             sdf_meshes: {
                 view: "main_view_no_clear"
@@ -403,9 +407,9 @@ import debug.pmfx
                     ["gbuffer_albedo", "ReadMsaa"]
                     ["gbuffer_normal", "ReadMsaa"]
                     ["gbuffer_position", "ReadMsaa"]
+                    ["gbuffer_depth", "ReadMsaa"]
                 ]
                 target_dimension: "staging_output"
-                thread_count: [32, 32, 1]
                 depends_on: ["meshes"]
             }
             blit_main_colour: {

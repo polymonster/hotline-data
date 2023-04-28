@@ -97,7 +97,7 @@ void cs_write_texture3d(uint3 did : SV_DispatchThreadID) {
         + abs(dot(n, float3(0.0, 0.0, 1.0))) * nxy
         + abs(dot(n, float3(1.0, 0.0, 0.0))) * nyz;
 
-    rw_volume_textures[use_input0][did.xyz] = float4(nn, 0.0, 0.0, nn < 0.9 ? 0.0 : 1.0);
+    rw_volume_textures[resources.input0.index][did.xyz] = float4(nn, 0.0, 0.0, nn < 0.9 ? 0.0 : 1.0);
 }
 
 //
@@ -121,12 +121,12 @@ struct draw_indexed_args {
 struct indirect_draw {
     buffer_view         vb;
     buffer_view         ib;
-    uint                draw_id;
+    uint4               ids;
     draw_indexed_args   args;
 };
 
 // potential draw calls we want to make
-StructuredBuffer<indirect_draw> input_draws[] : register(t0, space5);
+StructuredBuffer<indirect_draw> input_draws[] : register(t0, space11);
 
 // draw calls to populate during the `cs_frustum_cull` dispatch
 AppendStructuredBuffer<indirect_draw> output_draws[] : register(u0, space0);
@@ -135,23 +135,29 @@ AppendStructuredBuffer<indirect_draw> output_draws[] : register(u0, space0);
 void cs_frustum_cull(uint did : SV_DispatchThreadID) {
     uint index = did;
 
+    pmfx_touch(resources);
+
     // grab entity draw data
     extent_data extents = get_extent_data(index);
     camera_data main_camera = get_camera_data();
 
     // grab potential draw call
-    indirect_draw input = input_draws[use_input1][index];
+    indirect_draw input = input_draws[resources.input1.index][index];
 
     bool use_aabb = true;
-    
-    if(use_aabb) {
+    bool no_cull = false;
+
+    if(no_cull) {
+        output_draws[resources.input0.index].Append(input);
+    }
+    else if(use_aabb) {
         if(aabb_vs_frustum(extents.pos, extents.extent, main_camera.planes)) {
-            output_draws[use_input0].Append(input);
+            output_draws[resources.input0.index].Append(input);
         }
     }
     else {
         if(sphere_vs_frustum(extents.pos, length(extents.extent), main_camera.planes)) {
-            output_draws[use_input0].Append(input);
+            output_draws[resources.input0.index].Append(input);
         }
     }
 }
@@ -169,14 +175,14 @@ vs_output vs_heightmap(vs_input_mesh input) {
     float step = 1024.0 / 10.0;
     float height = 200.0;
 
-    float3 p1 = pos;
+    float3 p1 = pos.xyz;
     
     float h = fbm(p1.xz + fbm(p1.xz + fbm(p1.xz, 6), 6), 6) * height;
     p1.y += h;
 
     // take a few pos to calculate a normal
-    float3 p2 = pos + float3(step, 0.0, 0.0);
-    float3 p3 = pos + float3(step, 0.0, step);
+    float3 p2 = pos.xyz + float3(step, 0.0, 0.0);
+    float3 p3 = pos.xyz + float3(step, 0.0, step);
 
     p2.y += fbm(p2.xz + fbm(p2.xz + fbm(p2.xz, 6), 6), 6) * height;
     p3.y += fbm(p3.xz + fbm(p3.xz + fbm(p3.xz, 6), 6), 6) * height;
@@ -200,7 +206,7 @@ struct ps_output_mrt {
 
 ps_output_mrt ps_heightmap_example_mrt(vs_output input) {
     ps_output_mrt output;
-    output.albedo = float4(uv_gradient(input.colour), 1.0);
+    output.albedo = float4(uv_gradient(input.colour.r), 1.0);
     output.normal = float4(input.normal.xyz * 0.5 + 0.5, 1.0);
     output.position = float4((input.position.xyz / float3(1024.0, 1024.0, 1024.0)) * 0.5 + 0.5, 1.0);
     return output;
@@ -208,24 +214,33 @@ ps_output_mrt ps_heightmap_example_mrt(vs_output input) {
 
 [numthreads(32, 32, 1)]
 void cs_heightmap_mrt_resolve(uint2 did: SV_DispatchThreadID, uint2 group_id: SV_GroupID) {
+    // grab the output dimension from input0 (which we write to)
+    uint2 half_dim = resources.input0.dimension / 2;
     
-    float4 albedo = msaa8x_textures[use_input1].Load(did, 0);
-    float4 normal = msaa8x_textures[use_input2].Load(did, 0);
-    float4 position = msaa8x_textures[use_input3].Load(did, 0);
-
+    // render into 4 quadrants
     float4 final = float4(0.0, 0.0, 0.0, 0.0);
-    if(did.x < 400)
-    {
-        final = albedo;
+    if(did.x < half_dim.x && did.y < half_dim.y) {
+        // albedo
+        final = msaa8x_textures[resources.input1.index].Load(did * 2, 0);
     }
-    else if (did.x < 800)
-    {
-        final = normal;
+    else if (did.x >= half_dim.x && did.y < half_dim.y) {
+        // normals
+        uint2 sc = did;
+        sc.x -= half_dim.x;
+        final = msaa8x_textures[resources.input2.index].Load(sc * 2, 0);
     }
-    else
-    {
-        final = position;
+    else if (did.x < half_dim.x && did.y >= half_dim.y) {
+        // normals
+        uint2 sc = did;
+        sc.y -= half_dim.y;
+        final = msaa8x_textures[resources.input3.index].Load(sc * 2, 0);
+    }
+    else if (did.x >= half_dim.x && did.y >= half_dim.y) {
+        // depth
+        uint2 sc = did;
+        sc -= half_dim;
+        final = msaa8x_textures[resources.input4.index].Load(sc * 2, 0);
     }
 
-    rw_textures[use_input0][did] = final;
+    rw_textures[resources.input0.index][did] = final;
 }

@@ -19,18 +19,9 @@ struct vs_output_material {
     float4 texcoord: TEXCOORD1;
     float4 colour: TEXCOORD2;
     float3 normal: TEXCOORD3;
-    float4 tangent: TEXCOORD4;
-    float4 bitangent: TEXCOORD5;
+    float3 tangent: TEXCOORD4;
+    float3 bitangent: TEXCOORD5;
     uint4  ids: TEXCOORD6;
-};
-
-struct vs_output_lit {
-    float4 position: SV_POSITION0;
-    float4 world_pos: TEXCOORD0;
-    float4 texcoord: TEXCOORD1;
-    float4 normal: TEXCOORD2;
-    float4 tangent: TEXCOORD3;
-    float4 bitangent: TEXCOORD4;
 };
 
 vs_output vs_mesh(vs_input_mesh input) {
@@ -63,9 +54,9 @@ vs_output_material vs_mesh_material(vs_input_mesh input, vs_input_entity_ids ent
     output.texcoord = float4(input.texcoord, 0.0, 0.0);
     
     float3x3 rot = (float3x3)draw.world_matrix;
-    output.normal = float4(normalize(mul(rot, input.normal)), 1.0);
-    output.tangent = float4(normalize(mul(rot, input.tangent)), 1.0);
-    output.bitangent = float4(normalize(mul(rot, input.bitangent)), 1.0);
+    output.normal = normalize(mul(rot, input.normal));
+    output.tangent = normalize(mul(rot, input.tangent));
+    output.bitangent = normalize(mul(rot, input.bitangent));
     
     // mat
     material_data mat = get_material_data(entity_input.ids[1]);
@@ -74,8 +65,8 @@ vs_output_material vs_mesh_material(vs_input_mesh input, vs_input_entity_ids ent
     return output;
 }
 
-vs_output_lit vs_mesh_lit(vs_input_mesh input) {
-    vs_output_lit output;
+vs_output_material vs_mesh_lit(vs_input_mesh input) {
+    vs_output_material output;
 
     float3x4 wm = world_matrix;
     float4 pos = float4(input.position.xyz, 1.0);
@@ -86,9 +77,37 @@ vs_output_lit vs_mesh_lit(vs_input_mesh input) {
     output.texcoord = float4(input.texcoord, 0.0, 0.0);
 
     float3x3 rot = (float3x3)wm;
-    output.normal = float4(normalize(mul(rot, input.normal)), 1.0);
-    output.tangent = float4(normalize(mul(rot, input.tangent)), 1.0);
-    output.bitangent = float4(normalize(mul(rot, input.bitangent)), 1.0);
+    output.normal = normalize(mul(rot, input.normal));
+    output.tangent = normalize(mul(rot, input.tangent));
+    output.bitangent = normalize(mul(rot, input.bitangent));
+    output.ids = uint4(0, 0, 0, 0);
+
+    return output;
+}
+
+vs_output_material vs_mesh_material_indirect(vs_input_mesh input) {
+    vs_output_material output;
+
+    // get draw call info and transform world matrix
+    draw_data draw = get_draw_data(indirect_ids.x);
+    float4 pos = float4(input.position.xyz, 1.0);    
+    pos.xyz = mul(draw.world_matrix, pos);
+
+    // get camera data and transform projection matrix
+    camera_data main_camera = get_camera_data();
+
+    output.position = mul(main_camera.view_projection_matrix, pos);
+    output.world_pos = pos;
+    output.texcoord = float4(input.texcoord, 0.0, 0.0);
+    output.colour = float4(1.0, 1.0, 1.0, 1.0);
+
+    float3x3 rot = (float3x3)draw.world_matrix;
+    output.normal = normalize(mul(rot, input.normal));
+    output.tangent = normalize(mul(rot, input.tangent));
+    output.bitangent = normalize(mul(rot, input.bitangent));
+
+    material_data mat = get_material_data(indirect_ids.y);
+    output.ids = uint4(mat.albedo_id, mat.normal_id, mat.roughness_id, mat.padding);
     
     return output;
 }
@@ -159,7 +178,7 @@ ps_output ps_checkerboard(vs_output input) {
     return output;
 }
 
-ps_output ps_mesh_debug_tangent_space(vs_output_lit input) {
+ps_output ps_mesh_debug_tangent_space(vs_output_material input) {
     ps_output output;
     output.colour = float4(0.0, 0.0, 0.0, 0.0);
 
@@ -466,25 +485,5 @@ ps_output ps_mesh_lit(vs_output input) {
         output.colour += light.colour * specular;
     }
 
-    return output;
-}
-
-vs_output vs_mesh_indirect(vs_input_mesh input) {
-    vs_output output;
-
-    // get draw call info and transform world matrix
-    draw_data draw = get_draw_data(indirect_ids.x);
-    float4 pos = float4(input.position.xyz, 1.0);    
-    pos.xyz = mul(draw.world_matrix, pos);
-
-    // get camera data and transform projection matrix
-    camera_data main_camera = get_camera_data();
-
-    output.position = mul(main_camera.view_projection_matrix, pos);
-    output.world_pos = pos;
-    output.texcoord = float4(input.texcoord, 0.0, 0.0);
-    output.colour = float4(1.0, 1.0, 1.0, 1.0);
-    output.normal = input.normal.xyz;
-    
     return output;
 }
