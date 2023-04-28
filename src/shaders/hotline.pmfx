@@ -92,8 +92,9 @@
             render_target: [
                 main_colour
             ]
-            // clear_colour: [0.45, 0.55, 0.60, 1.0]
-            clear_colour: [0.0, 0.0, 0.0, 1.0]
+            clear_colour: [0.45, 0.55, 0.60, 1.0]
+            
+            //clear_colour: [0.0, 0.0, 0.0, 1.0]
             depth_stencil: [
                 main_depth
             ]
