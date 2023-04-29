@@ -41,10 +41,10 @@ ps_output ps_main(ps_input input) {
     float4 final = float4(0.0, 0.0, 0.0, 0.0);
     float2 uv = input.colour.rg * float2(1.0, -1.0);
 
-    float4 r0 = texture0[0].Sample(sampler0, uv * 2.0);
-    float4 r1 = texture0[1].Sample(sampler0, uv * 2.0);
-    float4 r2 = texture0[2].Sample(sampler0, uv * 2.0);
-    float4 r3 = texture0[3].Sample(sampler0, uv * 2.0);
+    float4 r0 = texture0[1].Sample(sampler0, uv * 2.0);
+    float4 r1 = texture0[2].Sample(sampler0, uv * 2.0);
+    float4 r2 = texture0[3].Sample(sampler0, uv * 2.0);
+    float4 r3 = texture0[4].Sample(sampler0, uv * 2.0);
     r3 *= my_rgba;
 
     if(input.colour.r < 0.5 && input.colour.g < 0.5)
