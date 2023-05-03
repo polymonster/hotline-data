@@ -16,19 +16,19 @@ cd hotline
 cargo build
 
 // once you have that you can build just data for win32
-./hotline-data/pmbuild win32-data
+hotline-data/pmbuild win32-data
 
 // or build client, data, hotline and plugins (debug)
-./hotline-data/pmbuild win32-debug
+hotline-data/pmbuild win32-debug
 
 // or build client, data, hotline and plugins (release)
-./hotline-data/pmbuild win32-release
+hotline-data/pmbuild win32-release
 
 // launch hotline (release)
-./hotline-data/pmbuild win32-release -run
+hotline-data/pmbuild win32-release -run
 
 // build code, data and launch (debug)
-./hotline-data/pmbuild win32-release -all -run
+hotline-data/pmbuild win32-release -all -run
 ```
 
 ## Customising
