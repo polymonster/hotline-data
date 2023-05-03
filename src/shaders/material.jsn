@@ -1,21 +1,10 @@
-import hotline.pmfx
 {
     include: [
-        "debug.hlsl"
+        "material.hlsl"
     ]
+
     pipelines: {
-        mesh_debug: {
-            vs: vs_mesh
-            ps: ps_checkerboard
-            push_constants: [
-                "view_push_constants"
-                "draw_push_constants"
-            ]
-            depth_stencil_state: depth_test_less
-            raster_state: cull_back
-            topology: "TriangleList"
-        }
-        mesh_debug_tangent_space(mesh_debug): {
+        mesh_debug_tangent_space: {
             vs: vs_mesh_lit
             ps: ps_mesh_debug_tangent_space
             push_constants: [
@@ -25,30 +14,11 @@ import hotline.pmfx
             static_samplers: {
                 sampler_wrap_linear: wrap_linear
             }
-        }
-        wireframe_overlay: {
-            vs: vs_mesh
-            ps: ps_wireframe
-            push_constants: [
-                "view_push_constants"
-                "draw_push_constants"
-            ]
-            raster_state: wireframe
-            depth_stencil_state: depth_test_always
+            depth_stencil_state: depth_test_less
+            raster_state: cull_back
             topology: "TriangleList"
         }
-        mesh_push_constants_texture(mesh_debug): {
-            vs: vs_mesh
-            ps: ps_texture2d
-            push_constants: [
-                "view_push_constants"
-                "draw_push_constants"
-            ]
-            static_samplers: {
-                sampler_wrap_linear: wrap_linear
-            }
-        }
-        mesh_material_instanced(mesh_debug): {
+        mesh_material_instanced: {
             vs: "vs_mesh_material",
             ps: "ps_mesh_material"
             push_constants: [
@@ -64,8 +34,11 @@ import hotline.pmfx
                     input_slot_class: "PerInstance"
                 }
             }
+            depth_stencil_state: depth_test_less
+            raster_state: cull_back
+            topology: "TriangleList"
         }
-        mesh_lit(mesh_debug): {
+        mesh_lit: {
             vs: "vs_mesh",
             ps: "ps_mesh_lit"
             push_constants: [
@@ -73,41 +46,13 @@ import hotline.pmfx
                 "draw_push_constants"
                 "world_buffer_info"
             ]
+            depth_stencil_state: depth_test_less
+            raster_state: cull_back
+            topology: "TriangleList"
         }
     }
+
     render_graphs: {
-        mesh_debug: {
-            debug: {
-                view: "main_view"
-                pipelines: ["imdraw_3d"]
-                function: "render_debug"
-            }
-            meshes: {
-                view: "main_view_no_clear"
-                pipelines: ["mesh_debug"]
-                function: "render_meshes"
-                depends_on: ["debug"]
-            }
-            wireframe: {
-                view: "main_view_no_clear"
-                pipelines: ["wireframe_overlay"]
-                function: "render_meshes"
-                depends_on: ["meshes", "debug"]
-            }
-        }
-        mesh_push_constants_texture: {
-            debug: {
-                view: "main_view"
-                pipelines: ["imdraw_3d"]
-                function: "render_debug"
-            }
-            meshes: {
-                view: "main_view_no_clear"
-                pipelines: ["mesh_push_constants_texture"]
-                function: "render_meshes_push_constants_texture"
-                depends_on: ["debug"]
-            }
-        }
         mesh_debug_tangent_space: {
             debug: {
                 view: "main_view"
@@ -121,7 +66,7 @@ import hotline.pmfx
                 depends_on: ["debug"]
             }
         }
-        mesh_material: {
+        mesh_instanced_bindless_material: {
             debug: {
                 view: "main_view"
                 pipelines: ["imdraw_3d"]

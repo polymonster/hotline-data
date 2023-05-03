@@ -1,8 +1,8 @@
-import hotline.pmfx
 {
     include:[
         "imdraw.hlsl"
     ]
+
     depth_stencil_states: {
         depth_test_less_equal: {
             depth_enabled: true
@@ -10,6 +10,14 @@ import hotline.pmfx
             depth_func: LessEqual
         }
     }
+
+    raster_states: {
+        wireframe: {
+            fill_mode: Wireframe
+            depth_bias: -5
+        }
+    }
+
     pipelines: {
         imdraw_2d: {
             vs: vs_2d

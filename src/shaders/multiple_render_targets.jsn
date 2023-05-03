@@ -1,0 +1,101 @@
+{
+    textures: {
+        gbuffer_albedo: {
+            ratio: {
+                window: main_dock
+                scale: 1.0
+            }
+            format: RGBA16f
+            usage: ["ShaderResource", "RenderTarget"]
+            samples: 8
+        }
+        gbuffer_normal(gbuffer_albedo): {}
+        gbuffer_position(gbuffer_albedo): {}
+        gbuffer_depth(gbuffer_albedo): {
+            format: D24nS8u
+            usage: ["ShaderResource", "DepthStencil"]
+        }
+        staging_output: {
+            ratio: {
+                window: main_dock
+                scale: 1.0
+            }
+            format: RGBA8n
+            usage: [UnorderedAccess, ShaderResource]
+        }
+    }
+
+    views: {
+        heightmap_mrt_view: {
+            render_target: [
+                gbuffer_albedo
+                gbuffer_normal
+                gbuffer_position
+            ]
+            clear_colour: [0.45, 0.55, 0.60, 1.0]
+            depth_stencil: [
+                gbuffer_depth
+            ]
+            clear_depth: 0.0
+            viewport: [0.0, 0.0, 1.0, 1.0, 0.0, 1.0]
+            camera: main_camera
+        }
+    }
+
+    pipelines: {
+        heightmap_mrt: {
+            vs: vs_heightmap
+            ps: ps_heightmap_example_mrt
+            static_samplers: {
+                sampler_wrap_linear: wrap_linear
+            }
+            depth_stencil_state: depth_test_greater
+            push_constants: [
+                "view_push_constants"
+                "draw_push_constants"
+            ]
+            raster_state: cull_back
+            topology: "TriangleList"
+        }
+        heightmap_mrt_resolve: {
+            cs: cs_heightmap_mrt_resolve
+            push_constants: [
+                resources
+            ]
+        }
+    }
+
+    render_graphs: {
+        multiple_render_targets: {
+            meshes: {
+                view: "heightmap_mrt_view"
+                pipelines: [
+                    "heightmap_mrt"
+                ]
+                function: "render_meshes_pipeline"
+            }
+            resolve_mrt: {
+                function: "dispatch_compute"
+                pipelines: ["heightmap_mrt_resolve"]
+                uses: [
+                    ["staging_output", "Write"]
+                    ["gbuffer_albedo", "ReadMsaa"]
+                    ["gbuffer_normal", "ReadMsaa"]
+                    ["gbuffer_position", "ReadMsaa"]
+                    ["gbuffer_depth", "ReadMsaa"]
+                ]
+                target_dimension: "staging_output"
+                depends_on: ["meshes"]
+            }
+            blit_main_colour: {
+                view: "main_view"
+                pipelines: ["imdraw_blit"]
+                uses: [
+                    ["staging_output", "Read"]
+                ]
+                target_dimension: "staging_output"
+                function: "blit"
+            }
+        }
+    }
+}

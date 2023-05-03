@@ -1,461 +1,132 @@
-import debug.pmfx
+import draw.jsn
+import draw_indirect.jsn
+import draw_instanced.jsn
+import texture.jsn
+import material.jsn
+import gpu_frustum_culling.jsn
+import multiple_render_targets.jsn
+import state_tests.jsn
 {
     include: [
-        "debug.hlsl"
-        "ecs_examples.hlsl"
+        "ecs.hlsl"
+        "maths.hlsl"
+        "draw.hlsl"
+        "draw_instanced.hlsl"
+        "texture.hlsl"
+        "material.hlsl"
+        "gpu_frustum_culling.hlsl"
+        "multiple_render_targets.hlsl"
     ]
-    textures: {
-        compute_texture3d: {
-            width: 64,
-            height: 64,
-            depth: 64,
-            usage: [UnorderedAccess, ShaderResource]
+
+    depth_stencil_states: {
+        depth_test_less: {
+            depth_enabled: true
+            depth_write_mask: All
+            depth_func: Less
         }
-        gbuffer_albedo: {
+        depth_test_greater: {
+            depth_enabled: true
+            depth_write_mask: All
+            depth_func: Greater
+        }
+        depth_test_equal: {
+            depth_enabled: true
+            depth_write_mask: All
+            depth_func: Equal
+        }
+        depth_test_always: {
+            depth_enabled: true
+            depth_write_mask: All
+            depth_func: Less
+        }
+    }
+
+    sampler_states: {
+        wrap_linear: {
+            filter: Linear
+            address_u: Wrap
+            address_v: Wrap
+            address_w: Wrap
+        }
+        clamp_linear: {
+            filter: Linear
+            address_u: Clamp
+            address_v: Clamp
+            address_w: Clamp
+        }
+        clamp_point: {
+            filter: Point
+            address_u: Clamp
+            address_v: Clamp
+            address_w: Clamp
+        }
+    }
+
+    raster_states: {
+        wireframe: {
+            fill_mode: Wireframe
+            depth_bias: -5
+        }
+        cull_back: {
+            cull_mode: Back
+        }
+        cull_none: {
+            cull_mode: None
+        }
+        cull_front: {
+            cull_mode: Front
+        }
+    }
+
+    render_target_blend_states: {
+        disabled: {
+            blend_enabled: false
+        }
+        additive: {
+            blend_enabled: true
+            src_blend: One
+            dst_blend: One
+        }
+        alpha: {
+            blend_enabled: true
+            src_blend: SrcAlpha
+            dst_blend: InvSrcAlpha
+        }
+    }
+
+    textures: {
+        main_colour: {
             ratio: {
                 window: main_dock
                 scale: 1.0
             }
-            format: RGBA16f
+            format: BGRX8n
             usage: ["ShaderResource", "RenderTarget"]
             samples: 8
         }
-        gbuffer_normal(gbuffer_albedo): {}
-        gbuffer_position(gbuffer_albedo): {}
-        gbuffer_depth(gbuffer_albedo): {
+        main_depth(main_colour): {
             format: D24nS8u
             usage: ["ShaderResource", "DepthStencil"]
-        }
-        staging_output: {
-            ratio: {
-                window: main_dock
-                scale: 1.0
-            }
-            format: RGBA8n
-            usage: [UnorderedAccess, ShaderResource]
+            generate_mips: false
         }
     }
+
     views: {
-        missing_camera_view: {
+        main_view: {
             render_target: [
-                "main_colour"
+                main_colour
             ]
             clear_colour: [0.45, 0.55, 0.60, 1.0]
             depth_stencil: [
-                "main_depth"
+                main_depth
             ]
             clear_depth: 1.0
             viewport: [0.0, 0.0, 1.0, 1.0, 0.0, 1.0]
-            camera: "missing"
-        }
-        heightmap_mrt_view: {
-            render_target: [
-                gbuffer_albedo
-                gbuffer_normal
-                gbuffer_position
-            ]
-            clear_colour: [0.45, 0.55, 0.60, 1.0]
-            depth_stencil: [
-                gbuffer_depth
-            ]
-            clear_depth: 0.0
-            viewport: [0.0, 0.0, 1.0, 1.0, 0.0, 1.0]
             camera: main_camera
         }
-    }
-    render_target_blend_states: {
-        subtract: {
-            blend_enabled: true
-            src_blend: SrcColour
-            dst_blend: DstColour
-            blend_op: Subtract
-        }
-        rev_subtract: {
-            blend_enabled: true
-            src_blend: One
-            dst_blend: One
-            blend_op: RevSubtract
-        }
-        min: {
-            blend_enabled: true
-            src_blend: One
-            dst_blend: One
-            blend_op: Min
-        }
-        max: {
-            blend_enabled: true
-            src_blend: One
-            dst_blend: One
-            blend_op: Max
-        }
-        add_colour: {
-            blend_enabled: true
-            src_blend: SrcColour
-            dst_blend: DstColour
-            blend_op: Add
-        }
-        add_constant: {
-            blend_enabled: true
-            src_blend: SrcColour
-            dst_blend: One
-            blend_op: Add
-        }
-        max_colour: {
-            blend_enabled: true
-            src_blend: SrcColour
-            dst_blend: DstColour
-            blend_op: Max
-        }
-    }
-    pipelines: {
-        mesh_identity: {
-            vs: vs_mesh_identity
-            ps: ps_checkerboard
-            push_constants: [
-                "view_push_constants"
-            ]
-            depth_stencil_state: depth_test_less
-            raster_state: cull_back
-            topology: "TriangleList"
-        }
-        mesh_vertex_buffer_instanced(mesh_debug): {
-            vs: vs_mesh_vertex_buffer_instanced
-            push_constants: [
-                "view_push_constants"
-            ]
-            vertex_layout: {
-                vs_input_instance: {
-                    input_slot: 1
-                    input_slot_class: "PerInstance"
-                }
-            }
-        }
-        mesh_cbuffer_instanced(mesh_debug): {
-            vs: vs_mesh_cbuffer_instanced
-            push_constants: [
-                "view_push_constants"
-            ]
-        }
-        cubemap_test(mesh_debug): {
-            vs: vs_mesh
-            ps: ps_cubemap
-            static_samplers: {
-                sampler_wrap_linear: wrap_linear
-            }
-            push_constants: [
-                "view_push_constants"
-                "draw_push_constants"
-            ]
-        }
-        texture2d_array_test(cubemap_test): {
-            ps: ps_texture2d_array
-        }
-        texture3d_test(cubemap_test): {
-            vs: vs_texture3d
-            ps: ps_volume_texture_ray_march_sdf
-            raster_state: cull_none
-        }
-        volume_ray_march(cubemap_test): {
-            vs: vs_texture3d
-            ps: ps_volume_texture_ray_march
-            static_samplers: {
-                sampler_wrap_linear: clamp_point
-            }
-            raster_state: cull_none
-        }
-        cull_none(mesh_debug): {
-            raster_state: cull_none
-        }
-        cull_front(cull_none): {
-            raster_state: cull_front
-        }
-        cull_back(cull_none): {
-            raster_state: cull_back
-        }
-        blend_disabled(cull_none): {
-            vs: vs_mesh
-            ps: ps_constant_colour
-            blend_state: disabled
-            push_constants: [
-                "view_push_constants"
-                "draw_push_constants"
-            ]
-        }
-        blend_additive(blend_disabled): {
-            blend_state: additive
-        }
-        blend_alpha(blend_disabled): {
-            blend_state: alpha
-        }
-        blend_subtract(blend_disabled): {
-            blend_state: subtract
-        }
-        blend_rev_subtract(blend_disabled): {
-            blend_state: rev_subtract
-        }
-        blend_min(blend_disabled): {
-            blend_state: min
-        }
-        blend_max(blend_disabled): {
-            blend_state: max
-        }
-        blend_max_colour(blend_disabled): {
-            blend_state: max_colour
-        }
-        blend_add_constant(blend_disabled): {
-            blend_state: add_constant
-        }
-        compute_write_texture3d: {
-            cs: cs_write_texture3d
-            push_constants: [
-                resources
-            ]
-        }
-        compute_frustum_cull: {
-            cs: cs_frustum_cull
-            push_constants: [
-                resources
-                world_buffer_info
-            ]
-        }
-        mesh_test_indirect: {
-            vs: vs_mesh_material_indirect
-            ps: ps_mesh_material
-            push_constants: [
-                "view_push_constants"
-                "indirect_push_constants"
-                "world_buffer_info"
-            ]
-            static_samplers: {
-                sampler_wrap_linear: wrap_linear
-            }
-            depth_stencil_state: depth_test_less
-            raster_state: cull_back
-            topology: "TriangleList"
-        }
-        heightmap_mrt(mesh_debug): {
-            vs: vs_heightmap
-            ps: ps_heightmap_example_mrt
-            static_samplers: {
-                sampler_wrap_linear: wrap_linear
-            }
-            depth_stencil_state: depth_test_greater
-            push_constants: [
-                "view_push_constants"
-                "draw_push_constants"
-            ]
-        }
-        heightmap_mrt_resolve: {
-            cs: cs_heightmap_mrt_resolve
-            push_constants: [
-                resources
-            ]
-        }
-    }
-    render_graphs: {
-        base: {
-            debug: {
-                view: "main_view"
-                pipelines: ["imdraw_3d"]
-                function: "render_debug"
-            }
-        }
-        mesh_draw_identity(base): {
-            meshes: {
-                view: "main_view_no_clear"
-                pipelines: ["mesh_identity"]
-                function: "draw_meshes"
-                depends_on: ["debug"]
-            }
-        }
-        mesh_draw_identity_indexed(base): {
-            meshes: {
-                view: "main_view_no_clear"
-                pipelines: ["mesh_identity"]
-                function: "render_meshes"
-                depends_on: ["debug"]
-            }
-        }
-        mesh_draw_vertex_buffer_instanced(base): {
-            meshes: {
-                view: "main_view_no_clear"
-                pipelines: ["mesh_vertex_buffer_instanced"]
-                function: "render_meshes_vertex_buffer_instanced"
-                depends_on: ["debug"]
-            }
-        }
-        mesh_draw_cbuffer_instanced(base): {
-            meshes: {
-                view: "main_view_no_clear"
-                pipelines: ["mesh_cbuffer_instanced"]
-                function: "render_meshes_cbuffer_instanced"
-                depends_on: ["debug"]
-            }
-        }
-        mesh_draw_indirect(base): {
-            meshes: {
-                view: "main_view_no_clear"
-                pipelines: ["mesh_debug"]
-                function: "draw_meshes_indirect"
-                depends_on: ["debug"]
-            }
-            wireframe: {
-                view: "main_view_no_clear"
-                pipelines: ["wireframe_overlay"]
-                function: "render_meshes"
-                depends_on: ["meshes", "debug"]
-            }
-        }
-        mesh_draw_indirect_culling(base): {
-            cull: {
-                function: "dispatch_compute_frustum_cull"
-                pipelines: ["compute_frustum_cull"]
-            }
-            meshes: {
-                view: "main_view_no_clear"
-                pipelines: ["mesh_test_indirect"]
-                function: "draw_meshes_indirect_culling"
-                depends_on: ["cull", "debug"]
-            }
-        }
-        raster_test(base): {
-            raster_meshes: {
-                view: "main_view_no_clear"
-                pipelines: ["cull_none", "cull_front", "cull_back", "wireframe_overlay"]
-                function: "render_meshes_pipeline"
-                depends_on: ["debug"]
-            }
-        }
-        blend_test(base): {
-            blend_meshes: {
-                view: "main_view_no_clear"
-                pipelines: [
-                    "cull_back"
-                    "blend_disabled"
-                    "blend_additive"
-                    "blend_alpha"
-                    "blend_subtract"
-                    "blend_rev_subtract"
-                    "blend_min"
-                    "blend_max"
-                ]
-                function: "render_meshes_pipeline_coloured"
-                depends_on: ["debug"]
-            }
-        }
-        cubemap_test(base): {
-            sphere_meshes: {
-                view: "main_view_no_clear"
-                pipelines: [
-                    "cubemap_test"
-                ]
-                function: "render_meshes_cubemap_test"
-                depends_on: ["debug"]
-            }
-        }
-        texture2d_array_test(base): {
-            billboard_meshes: {
-                view: "main_view_no_clear"
-                pipelines: [
-                    "texture2d_array_test"
-                ]
-                function: "render_meshes_texture2d_array_test"
-                depends_on: ["debug"]
-            }
-        }
-        texture3d_test(base): {
-            sdf_meshes: {
-                view: "main_view_no_clear"
-                pipelines: [
-                    "texture3d_test"
-                ]
-                function: "render_meshes_texture3d_test"
-                depends_on: ["debug"]
-            }
-        }
-        compute_test(base): {
-            write_texture: {
-                function: "dispatch_compute"
-                pipelines: ["compute_write_texture3d"]
-                uses: [
-                    ["compute_texture3d", "Write"]
-                ]
-                target_dimension: "compute_texture3d"
-            }
-            sdf_meshes: {
-                view: "main_view_no_clear"
-                pipelines: [
-                    "volume_ray_march"
-                ]
-                function: "render_meshes_texture3d_test"
-                depends_on: ["debug"]
-            }
-        }
-        multiple_render_targets_test: {
-            meshes: {
-                view: "heightmap_mrt_view"
-                pipelines: [
-                    "heightmap_mrt"
-                ]
-                function: "render_meshes_pipeline"
-            }
-            resolve_mrt: {
-                function: "dispatch_compute"
-                pipelines: ["heightmap_mrt_resolve"]
-                uses: [
-                    ["staging_output", "Write"]
-                    ["gbuffer_albedo", "ReadMsaa"]
-                    ["gbuffer_normal", "ReadMsaa"]
-                    ["gbuffer_position", "ReadMsaa"]
-                    ["gbuffer_depth", "ReadMsaa"]
-                ]
-                target_dimension: "staging_output"
-                depends_on: ["meshes"]
-            }
-            blit_main_colour: {
-                view: "main_view"
-                pipelines: ["imdraw_blit"]
-                uses: [
-                    ["staging_output", "Read"]
-                ]
-                target_dimension: "staging_output"
-                function: "blit"
-            }
-        }
-        missing_view: {
-            missing_view: {
-                view: "missing"
-                pipelines: ["imdraw_3d"]
-                function: "render_debug"
-            }
-        }
-        missing_function: {
-            meshes: {
-                view: "main_view_no_clear"
-                pipelines: ["mesh_debug"]
-                function: "missing"
-            }
-        }
-        failing_pipeline: {
-            failing_pipeline: {
-                view: "main_view"
-                pipelines: ["missing"]
-                function: "render_debug"
-            }
-        }
-        missing_pipeline: {
-            missing_pipeline: {
-                view: "main_view"
-                pipelines: ["mesh_debug"]
-                function: "render_missing_pipeline"
-            }
-        }
-        missing_camera: {
-            missing_camera: {
-                view: "missing_camera_view"
-                pipelines: ["mesh_debug"]
-                function: "render_missing_camera"
-            }
+        main_view_no_clear(main_view): {
+            clear_colour: null
+            clear_depth: null
         }
     }
 }
