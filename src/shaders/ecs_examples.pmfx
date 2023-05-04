@@ -4,8 +4,9 @@ import draw_instanced.jsn
 import texture.jsn
 import material.jsn
 import gpu_frustum_culling.jsn
-import multiple_render_targets.jsn
+import render_targets.jsn
 import state_tests.jsn
+import shadows.jsn
 {
     include: [
         "ecs.hlsl"
@@ -15,7 +16,8 @@ import state_tests.jsn
         "texture.hlsl"
         "material.hlsl"
         "gpu_frustum_culling.hlsl"
-        "multiple_render_targets.hlsl"
+        "render_targets.hlsl"
+        "shadows.hlsl"
     ]
 
     depth_stencil_states: {
@@ -107,7 +109,6 @@ import state_tests.jsn
         main_depth(main_colour): {
             format: D24nS8u
             usage: ["ShaderResource", "DepthStencil"]
-            generate_mips: false
         }
     }
 

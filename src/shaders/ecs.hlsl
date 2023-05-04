@@ -36,6 +36,7 @@ cbuffer indirect_push_constants : register(b1) {
 
 // world id's bind on slot b2... below
 // containing ids of world buffers within the striuctured buffer arrays
+// cameras bind on slot b3
 
 // resource lookup indices
 // these indices of resources used in compute shaders, then can specified in pmfx and passed as push constants
@@ -56,7 +57,7 @@ struct resource_uses {
     resource_use input7;
 }
 
-ConstantBuffer<resource_uses> resources: register(b0);
+ConstantBuffer<resource_uses> resources: register(b0, space1);
 
 // bindless draw data for entites to look up by ID
 struct draw_data {
@@ -80,6 +81,7 @@ struct world_buffer_info_data {
     uint2 spot_light;
     uint2 directional_light;
     uint2 camera;
+    uint2 shadow_matrix;
 }
 
 // point light parameters
@@ -124,13 +126,14 @@ StructuredBuffer<material_data> materials[] : register(t0, space2);
 StructuredBuffer<point_light_data> point_lights[] : register(t0, space3);
 StructuredBuffer<spot_light_data> spot_lights[] : register(t0, space4);
 StructuredBuffer<directional_light_data> directional_lights[] : register(t0, space5);
+StructuredBuffer<float4x4> shadow_matrices[] : register(t0, space6);
 
 // textures 
-Texture2D textures[] : register(t0, space6);
-Texture2DMS<float4, 8> msaa8x_textures[] : register(t0, space7);
-TextureCube cubemaps[] : register(t0, space8);
-Texture2DArray texture_arrays[] : register(t0, space9);
-Texture3D volume_textures[] : register(t0, space10);
+Texture2D textures[] : register(t0, space7);
+Texture2DMS<float4, 8> msaa8x_textures[] : register(t0, space8);
+TextureCube cubemaps[] : register(t0, space9);
+Texture2DArray texture_arrays[] : register(t0, space10);
+Texture3D volume_textures[] : register(t0, space11);
 
 // uav textures
 RWTexture2D<float4> rw_textures[] : register(u0, space0);
@@ -144,6 +147,7 @@ ConstantBuffer<camera_data> cameras[] : register(b3);
 
 // samplers
 SamplerState sampler_wrap_linear : register(s0);
+SamplerState sampler_clamp_point: register(s1);
 
 // utility functions to lookup entity draw data
 draw_data get_draw_data(uint entity_index) {
@@ -163,4 +167,9 @@ material_data get_material_data(uint material_index) {
 // utility functions to lookup camera data
 camera_data get_camera_data() {
     return cameras[world_buffer_info.camera.x];
+}
+
+// utility to return a shadow matrix by index
+float4x4 get_shadow_matrix(uint shadow_index) {
+    return shadow_matrices[world_buffer_info.shadow_matrix.x][shadow_index];
 }

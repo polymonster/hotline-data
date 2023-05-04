@@ -88,3 +88,27 @@ void cs_heightmap_mrt_resolve(uint2 did: SV_DispatchThreadID, uint2 group_id: SV
 
     rw_textures[resources.input0.index][did] = final;
 }
+
+[numthreads(32, 32, 1)]
+void cs_display_mips(uint2 did: SV_DispatchThreadID, uint2 group_id: SV_GroupID) {
+    // start at black
+    float4 output = float4(0.0, 0.0, 0.0, 0.0);
+
+    //loop through mips
+    int2 mip_coord = did.xy;
+    int mipw = resources.input1.dimension.x;
+    int miph = resources.input1.dimension.y;
+    int mip_level = 0;
+    while(mipw > 1 && miph > 1) {
+        if(did.x <= mipw && did.y <= miph) {
+            output = textures[resources.input1.index].Load(int3(did.xy, mip_level));
+        }
+
+        mip_level++;
+        mipw = max(mipw / 2, 1);
+        miph = max(miph / 2, 1);
+        mip_coord /= 2;
+    }
+
+    rw_textures[resources.input0.index][did] = output;
+}

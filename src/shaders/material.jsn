@@ -75,7 +75,7 @@
             meshes: {
                 view: "main_view_no_clear"
                 pipelines: ["mesh_material_instanced"]
-                function: "render_meshes_bindless_material"
+                function: "render_meshes_bindless"
                 depends_on: ["debug"]
             }
         }
@@ -86,9 +86,9 @@
                 function: "render_debug"
             }
             meshes: {
-                view: "main_view"
+                view: "main_view_no_clear"
                 pipelines: ["mesh_lit"]
-                function: "render_meshes_bindless_material"
+                function: "render_meshes_bindless"
                 depends_on: ["debug"]
             }
         }
