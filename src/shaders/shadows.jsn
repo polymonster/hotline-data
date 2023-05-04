@@ -8,6 +8,16 @@
         }
     }
 
+    sampler_states: {
+        shadow_compare: {
+            filter: Linear
+            address_u: Clamp
+            address_v: Clamp
+            address_w: Clamp
+            comparison: Less
+        }
+    }
+
     views: {
         single_shadow_map: {
             depth_stencil: [
@@ -56,6 +66,7 @@
             raster_state: cull_back
             topology: TriangleList
             static_samplers: {
+                sampler_shadow_compare: shadow_compare
                 sampler_clamp_point: clamp_point
             }
         }
@@ -75,7 +86,7 @@
                 depends_on: ["debug"]
             }
             meshes: {
-                view: "main_view_no_clear"
+                view: "main_view_black"
                 pipelines: ["single_directional_shadow"]
                 function: "render_meshes_bindless"
                 depends_on: ["shadow"]

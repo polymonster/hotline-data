@@ -155,8 +155,10 @@ ConstantBuffer<world_buffer_info_data> world_buffer_info : register(b2);
 ConstantBuffer<camera_data> cameras[] : register(b3);
 
 // samplers
-SamplerState sampler_wrap_linear : register(s0);
-SamplerState sampler_clamp_point: register(s1);
+SamplerState sampler0 : register(s0);
+SamplerState sampler_wrap_linear : register(s1);
+SamplerState sampler_clamp_point : register(s2);
+SamplerComparisonState sampler_shadow_compare : register(s3);
 
 // utility functions to lookup entity draw data
 draw_data get_draw_data(uint entity_index) {

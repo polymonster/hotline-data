@@ -125,6 +125,18 @@ import shadows.jsn
             viewport: [0.0, 0.0, 1.0, 1.0, 0.0, 1.0]
             camera: main_camera
         }
+        main_view_black: {
+            render_target: [
+                main_colour
+            ]
+            clear_colour: [0.0, 0.0, 0.0, 1.0]
+            depth_stencil: [
+                main_depth
+            ]
+            clear_depth: 1.0
+            viewport: [0.0, 0.0, 1.0, 1.0, 0.0, 1.0]
+            camera: main_camera
+        }
         main_view_no_clear(main_view): {
             clear_colour: null
             clear_depth: null

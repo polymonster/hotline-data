@@ -31,5 +31,6 @@ void cs_mip_chain_texture2d(uint2 did: SV_DispatchThreadID) {
         level_up += rw_texture[read][did.xy * 2];
     }
     
+    //rw_texture[write][did.xy] = float4(1.0, 0.0, 1.0, 1.0);
     rw_texture[write][did.xy] = level_up / 9.0;
 }
