@@ -126,6 +126,7 @@
                 ]
                 target_dimension: "staging_output"
                 function: "blit"
+                depends_on: ["resolve_mrt"]
             }
         }
 
@@ -155,6 +156,7 @@
                 ]
                 target_dimension: "staging_output"
                 function: "blit"
+                depends_on: ["display_mips"]
             }
         }
     }
