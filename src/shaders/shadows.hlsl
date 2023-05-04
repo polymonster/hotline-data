@@ -19,12 +19,15 @@ float4 ps_single_directional_shadow(vs_output input) : SV_Target {
     float3 v = normalize(input.world_pos.xyz - view_position.xyz);
     float3 n = input.normal;
 
-    // need to pass shadow map in light data
-    int shadow_map_index = 1; //resources.input0.index;
-    float4x4 shadow_matrix = get_shadow_matrix(0);
+    // single directional light
+    uint directional_lights_id = world_buffer_info.directional_light.x;
+    directional_light_data light = directional_lights[directional_lights_id][0];
+
+    int shadow_map_index = light.shadow_map.srv_index;
+    float4x4 shadow_matrix = get_shadow_matrix(light.shadow_map.matrix_index);
     
     // project shadow coord
-    float4 offset_pos = float4(input.world_pos.xyz + n.xyz * 0.1, 1.0);
+    float4 offset_pos = float4(input.world_pos.xyz + n.xyz * 0.001, 1.0);
 
     float4 sp = mul(shadow_matrix, offset_pos);
     sp.xyz /= sp.w;
@@ -32,12 +35,8 @@ float4 ps_single_directional_shadow(vs_output input) : SV_Target {
     sp.xy = sp.xy * 0.5 + 0.5;
 
     float shadow_sample = textures[shadow_map_index].Sample(sampler_clamp_point, sp.xy).r;
-
     float shadow = sp.z < shadow_sample;
     
-    // single directional light
-    uint directional_lights_id = world_buffer_info.directional_light.x;
-    directional_light_data light = directional_lights[directional_lights_id][0];
 
     float3 l = light.dir.xyz;
     float diffuse = lambert(l, n);

@@ -84,26 +84,35 @@ struct world_buffer_info_data {
     uint2 shadow_matrix;
 }
 
+// info to lookup shadow srv and matrix
+struct shadow_map_info {
+    uint srv_index;
+    uint matrix_index;
+}
+
 // point light parameters
 struct point_light_data {
-    float3 pos;
-    float  radius;
-    float4 colour;
+    float3          pos;
+    float           radius;
+    float4          colour;
+    shadow_map_info shadow_map;
 }
 
 // spot light parameters
 struct spot_light_data {
-    float3 pos;
-    float  cutoff;
-    float3 dir;
-    float  falloff;
-    float4 colour;
+    float3          pos;
+    float           cutoff;
+    float3          dir;
+    float           falloff;
+    float4          colour;
+    shadow_map_info shadow_map;
 }
 
 // directional light data
 struct directional_light_data {
-    float4 dir;
-    float4 colour;
+    float3          dir;
+    float4          colour;
+    shadow_map_info shadow_map;
 }
 
 // camera data

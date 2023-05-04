@@ -33,14 +33,14 @@
     }
 
     pipelines: {
-        depth_only: {
+        depth_only_shadow: {
             vs: vs_depth_only
             push_constants: [
                 view_push_constants
                 draw_push_constants
             ]
             depth_stencil_state: depth_test_less
-            raster_state: cull_back
+            raster_state: cull_front
             topology: TriangleList
         }
 
@@ -70,7 +70,7 @@
             }
             shadow: {
                 view: "single_shadow_map"
-                pipelines: ["depth_only"]
+                pipelines: ["depth_only_shadow"]
                 function: "render_meshes_bindless"
                 depends_on: ["debug"]
             }
