@@ -207,3 +207,19 @@ void cs_write_texture3d(uint3 did : SV_DispatchThreadID) {
 
     rw_volume_textures[resources.input0.index][did.xyz] = float4(nn, 0.0, 0.0, nn < 0.9 ? 0.0 : 1.0);
 }
+
+//
+// reflection
+//
+
+float4 ps_cubemap_reflect(vs_output input) : SV_Target {
+    // cubemap space z is inverted, so we must invert z of the ray and also the z of the normal
+    float3 rd = normalize(input.world_pos.xyz - view_position.xyz) * float3(1.0, 1.0, -1.0);
+    float3 n = normalize(input.normal.xyz * float3(1.0, 1.0, -1.0));
+    float3 r = reflect(rd, n);
+
+    float4 col = cubemaps[draw_indices.x].SampleLevel(sampler_wrap_linear, r, draw_indices.y);
+
+    col.a = 1.0;
+    return col;
+}

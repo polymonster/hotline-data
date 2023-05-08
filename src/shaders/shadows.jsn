@@ -86,7 +86,7 @@
                 depends_on: ["debug"]
             }
             meshes: {
-                view: "main_view_black"
+                view: "main_view_no_clear"
                 pipelines: ["single_directional_shadow"]
                 function: "render_meshes_bindless"
                 depends_on: ["shadow"]

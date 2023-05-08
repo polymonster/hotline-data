@@ -33,6 +33,11 @@
             ps: ps_cubemap
         }
 
+        cubemap_reflect(mesh_bindless_texture): {
+            vs: vs_mesh
+            ps: ps_cubemap_reflect
+        }
+
         texture2d_array(mesh_bindless_texture): {
             ps: ps_texture2d_array
         }
