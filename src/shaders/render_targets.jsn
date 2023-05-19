@@ -36,6 +36,15 @@
             samples: 8
         }
 
+        skybox_background: {
+            ratio: {
+                window: main_dock
+                scale: 1.0
+            }
+            format: RGBA8n
+            usage: ["ShaderResource", "RenderTarget", "UnorderedAccess"]
+        }
+
         dynamic_cubemap: {
             width: 2048
             height: 2048
@@ -47,6 +56,10 @@
         cubemap_depth(dynamic_cubemap): {
             format: D32f
             usage: ["ShaderResource", "DepthStencil"]
+        }
+
+        static_cubemap: {
+            filepath: "textures/cubemap_yokahoma.dds"
         }
     }
 
@@ -90,6 +103,11 @@
             clear_depth: 1.0
             viewport: [0.0, 0.0, 1.0, 1.0, 0.0, 1.0]
             camera: cubemap_camera
+        }
+
+        cubemap_view_no_clear(cubemap_view): {
+            clear_colour: null
+            clear_depth: null
         }
     }
 
@@ -187,21 +205,43 @@
         }
 
         dynamic_cubemap: {
-            cubemap: {
+            clear_cubemap_skybox: {
                 view: "cubemap_view"
-                cubemap: true,
+                cubemap: true
+                function: "cubemap_clear"
+                pipelines: [
+                    "cubemap_clear"
+                ]
+                uses: [
+                    ["static_cubemap", "Read"]
+                ]
+            }
+            cubemap: {
+                view: "cubemap_view_no_clear"
+                cubemap: true
                 pipelines: [
                     "mesh_push_draw_constants"
                 ]
                 function: "render_meshes"
+                depends_on: [
+                    "clear_cubemap_skybox"
+                ]
+            }
+            clear_skybox: {
+                view: "main_view"
+                function: "cubemap_clear"
+                pipelines: ["cubemap_clear"]
+                uses: [
+                    ["static_cubemap", "Read"]
+                ]
             }
             chrome_ball: {
-                view: "main_view"
+                view: "main_view_no_clear"
                 pipelines: [
                     "cubemap_reflect"
                 ]
                 function: "render_meshes_cubemap_reflect"
-                depends_on: ["cubemap"]
+                depends_on: ["clear_skybox", "cubemap"]
             }
             orbit_meshes: {
                 view: "main_view_no_clear"

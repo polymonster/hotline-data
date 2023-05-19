@@ -1,0 +1,6 @@
+hotline-data\src\textures\cubemap_yokahoma\posx.jpg
+hotline-data\src\textures\cubemap_yokahoma\negx.jpg
+hotline-data\src\textures\cubemap_yokahoma\posy.jpg
+hotline-data\src\textures\cubemap_yokahoma\negy.jpg
+hotline-data\src\textures\cubemap_yokahoma\posz.jpg
+hotline-data\src\textures\cubemap_yokahoma\negz.jpg
