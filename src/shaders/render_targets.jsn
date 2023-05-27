@@ -249,7 +249,6 @@
                     "mesh_push_draw_constants"
                 ]
                 function: "render_orbit_meshes"
-                depends_on: ["chrome_ball"]
             }
         }
     }

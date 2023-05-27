@@ -1,4 +1,3 @@
-
 float4 vs_depth_only(vs_input_mesh input) : SV_POSITION {
     float4 pos = float4(input.position.xyz, 1.0);
     pos.xyz = mul(world_matrix, pos);
@@ -6,6 +5,32 @@ float4 vs_depth_only(vs_input_mesh input) : SV_POSITION {
     float4 output = mul(view_projection_matrix, pos);
     return output;
 }
+
+struct vs_output_world_pos {
+    float4 pos : SV_POSITION;
+    float3 world_pos : TEXCOORD0;
+};
+
+vs_output_world_pos vs_depth_world_pos(vs_input_mesh input) {
+    vs_output_world_pos output;
+
+    float4 pos = float4(input.position.xyz, 1.0);
+    pos.xyz = mul(world_matrix, pos);
+
+    output.world_pos = pos.xyz;
+    output.pos = mul(view_projection_matrix, pos);
+
+    return output;
+}
+
+float ps_omni_shadow_depth(vs_output_world_pos input) : SV_Depth {
+    uint point_lights_id = world_buffer_info.point_light.x;
+    uint point_lights_count = world_buffer_info.point_light.y;
+    point_light_data light = point_lights[point_lights_id][0];
+    float d = length(input.world_pos - light.pos) / light.radius;
+    return d / 2.0; // divide by 2 because the ortho far plane is light radius * 2.0
+}
+
 
 float sample_shadow_pcf_9(float3 sp, uint sm_index, float2 sm_size) {
     float2 samples[9];
@@ -25,7 +50,6 @@ float sample_shadow_pcf_9(float3 sp, uint sm_index, float2 sm_size) {
         shadow += textures[sm_index].SampleCmp(sampler_shadow_compare, sp.xy + samples[j], 0.0);
     }
     shadow /= 9.0;
-
 
     shadow = textures[sm_index].SampleCmp(sampler_shadow_compare, sp.xy, sp.z);
     return shadow;
@@ -74,7 +98,46 @@ float4 ps_single_directional_shadow(vs_output input) : SV_Target {
     float4 lit_colour = light.colour * diffuse + light.colour * specular;
     output = lit_colour * shadow + light.colour * 0.2;
 
-    //output = float4(shadow, shadow, shadow, 1.0);
-
     return output;
+}
+
+float4 ps_single_omni_shadow(vs_output input) : SV_Target {
+    
+    int i = 0;
+    float ks = 2.0;
+    float roughness = 0.9;
+    float k = 0.3;
+    float4 output = float4(0.0, 0.0, 0.0, 0.0);
+
+    float3 v = normalize(input.world_pos.xyz - view_position.xyz);
+    float3 n = input.normal;
+
+    // point lights
+    uint point_lights_id = world_buffer_info.point_light.x;
+    uint point_lights_count = world_buffer_info.point_light.y;
+    point_light_data light = point_lights[point_lights_id][0];
+
+    float3 l = normalize(input.world_pos.xyz - light.pos);
+
+    float diffuse = lambert(l, n);
+    float specular = cook_torrance(l, n, v, roughness, k);
+
+    float atteniuation = point_light_attenuation(
+        light.pos,
+        light.radius,
+        input.world_pos.xyz
+    );
+    
+    output += atteniuation * light.colour * diffuse;
+    output += atteniuation * light.colour * specular;
+
+    // omni directional shadow
+    float3 to_light = input.world_pos.xyz - light.pos;
+    float d = length(to_light) / light.radius / 2.0; // omni shadow space far plane is radius * 2.0
+    float3 cv = l * float3(1.0, 1.0, -1.0);
+
+    int shadow_map_index = light.shadow_map.srv_index;
+    float4 shadow = cubemaps[shadow_map_index].SampleCmp(sampler_shadow_compare, cv, d);
+    
+    return output * shadow;
 }
