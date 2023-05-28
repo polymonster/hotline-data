@@ -122,7 +122,7 @@ float4 ps_single_omni_shadow(vs_output input) : SV_Target {
     float diffuse = lambert(l, n);
     float specular = cook_torrance(l, n, v, roughness, k);
 
-    float atteniuation = point_light_attenuation(
+    float atteniuation = point_light_attenuation_cutoff(
         light.pos,
         light.radius,
         input.world_pos.xyz
@@ -137,7 +137,13 @@ float4 ps_single_omni_shadow(vs_output input) : SV_Target {
     float3 cv = l * float3(1.0, 1.0, -1.0);
 
     int shadow_map_index = light.shadow_map.srv_index;
-    float4 shadow = cubemaps[shadow_map_index].SampleCmp(sampler_shadow_compare, cv, d);
+    float shadow = cubemaps[shadow_map_index].SampleCmp(sampler_shadow_compare, cv, d).r;
+
+    //shadow = cubemaps[shadow_map_index].Sample(sampler_clamp_point, cv, d).r;
+
+    if(dot(n, l) >= 0.0) {
+        shadow = 0.0;
+    }
     
     return output * shadow;
 }

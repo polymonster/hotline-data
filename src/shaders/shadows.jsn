@@ -81,7 +81,7 @@
                 world_buffer_info
             ]
             depth_stencil_state: depth_test_less
-            raster_state: cull_back
+            raster_state: cull_front
             topology: TriangleList
         }
 

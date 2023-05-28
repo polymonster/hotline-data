@@ -248,6 +248,7 @@
                 pipelines: [
                     "mesh_push_draw_constants"
                 ]
+                depends_on: ["clear_skybox", "chrome_ball"]
                 function: "render_orbit_meshes"
             }
         }
