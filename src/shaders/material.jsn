@@ -3,6 +3,12 @@
         "material.hlsl"
     ]
 
+    textures: {
+        static_cubemap: {
+            filepath: "textures/cubemap.dds"
+        }
+    }
+
     pipelines: {
         mesh_debug_tangent_space: {
             vs: vs_mesh_lit
@@ -90,6 +96,27 @@
                 pipelines: ["mesh_lit"]
                 function: "render_meshes_bindless"
                 depends_on: ["debug"]
+            }
+        }
+        mesh_pbr: {
+            clear_cubemap_skybox: {
+                view: "main_view"
+                cubemap: true
+                function: "cubemap_clear"
+                pipelines: [
+                    "cubemap_clear"
+                ]
+                uses: [
+                    ["static_cubemap", "Read"]
+                ]
+            }
+            sphere_meshes: {
+                view: "main_view_no_clear"
+                pipelines: [
+                    "cubemap"
+                ]
+                function: "render_meshes_pbr"
+                depends_on: ["clear_cubemap_skybox"]
             }
         }
     }
