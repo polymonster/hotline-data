@@ -56,6 +56,21 @@
             raster_state: cull_back
             topology: "TriangleList"
         }
+        mesh_pbr_ibl: {
+            vs: "vs_mesh",
+            ps: "ps_mesh_pbr_ibl"
+            push_constants: [
+                "view_push_constants"
+                "draw_push_constants"
+                "world_buffer_info"
+            ]
+            static_samplers: {
+                sampler_wrap_linear: wrap_linear
+            }
+            depth_stencil_state: depth_test_less
+            raster_state: cull_back
+            topology: "TriangleList"
+        }
     }
 
     render_graphs: {
@@ -113,7 +128,7 @@
             sphere_meshes: {
                 view: "main_view_no_clear"
                 pipelines: [
-                    "cubemap"
+                    "mesh_pbr_ibl"
                 ]
                 function: "render_meshes_pbr"
                 depends_on: ["clear_cubemap_skybox"]

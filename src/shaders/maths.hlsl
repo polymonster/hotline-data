@@ -355,8 +355,95 @@ bool aabb_vs_frustum(float3 aabb_pos, float3 aabb_extent, float4 planes[6]) {
         float pd = planes[p].w;
         float d2 = dot(aabb_pos + aabb_extent * sign_flip, planes[p].xyz);
         if (d2 > -pd) {
-            inside = false;
+            return false;
         }
     }
-    return inside;
+    return true;
+}
+
+// returns the fresnel factor for specular reflectance where `cos_theta` is h.v and `f0` is the reflectance at normal incidence
+float3 fresnel_schlick(float cos_theta, float3 f0)
+{
+    return f0 + (1.0 - f0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
+}
+
+// returns the fresnel factor for specular reflectance accounting for material roughness where
+// `cos_theta` is h.v and `f0` is the reflectance at normal incidence
+// `roughness` is the material roughness in 0-1 range   
+float3 fresnel_schlick_roughness(float cos_theta, float3 f0, float roughness)
+{
+    float invr = 1.0 - roughness;
+    return f0 + (max(float3(invr, invr, invr), f0) - f0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
+}
+
+// normal distribution function (ndf) which returns the probability density of sufrace normals where
+// `n` is the surface normal, `n_dot_h` is the dot product of surface normal and the half angle h
+// and `roughness` is the material roughness in 0-1 range 
+float distribution_beckmann(float3 n, float n_dot_h, float roughness)
+{
+    // microfacet distribution function: beckmann
+    /*
+    float r2 = roughness * roughness;
+    float nh2 = n_dot_h * n_dot_h;
+    float r1 = 1.0f / ( 4.0f * r2 * pow(n_dot_h, 4.0f));
+    float r2 = (nh2 * nh2 - 1.0) / (r2 * nh2);
+    return r1 * exp(r2);
+    */
+
+    float nh2 = n_dot_h * n_dot_h;
+    float tanh = (1.0 - nh2) / nh2;
+    float tanh2 = tanh*tanh;
+    float r2 = roughness * roughness;
+    float denom = (pi() * r2) * pow(n_dot_h, 4.0);
+    return exp(-tanh2 / r2) / denom;
+}
+
+// normal distribution function (ndf) which returns the probability density of sufrace normals where
+// `n` is the surface normal, `h` is the halfway vector between the surface normal and view direction
+// and `roughness` is the material roughness in 0-1 range 
+float distribution_ggx(float3 n, float3 h, float roughness)
+{
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float nh = max(dot(h, n), 0.0);
+    float nh2 = nh * nh;
+    float nom = a2;
+    float denom = (nh2 * (a2 - 1.0) + 1.0);
+    denom = pi() * denom * denom;
+
+    return nom / denom;
+}
+
+// geometry term which returns the probability that light will reflect light toward the viewer or be occluded
+// where `n_dot_v` is the dot product of n (the surface normal) and v (the view direction)
+// and `roughness` is the material roughness in 0-1 range 
+float geometry_schlick_ggx(float n_dot_v, float roughness)
+{
+    float r = (roughness + 1.0);
+    float k = (r * r) / 8.0;
+    float nom = n_dot_v;
+    float denom = n_dot_v * (1.0 - k) + k;
+
+    return nom / denom;
+}
+
+// geometry term which returns the probability that light will reflect light toward the viewer or be occluded
+// where `n` is the surface normal, `v` is the view direction, `l` is the light direction
+// and `roughness` is the material roughness in 0-1 range 
+float geometry_smith(float3 n, float3 v, float3 l, float roughness)
+{
+    float n_dot_v = max(dot(n, v), 0.0);
+    float n_dot_l = max(dot(n, l), 0.0);
+    float ggx2 = geometry_schlick_ggx(n_dot_v, roughness);
+    float ggx1 = geometry_schlick_ggx(n_dot_l, roughness);
+
+    return ggx1 * ggx2;
+}
+
+// probability density function which returns the density of scattered light for the light direction vector `l`
+// viewing direction `v` and `g` is the assymetry factor (anisotropy) that describes the degree of forward or back scattering 
+float phase_henyey_greenstein(float3 l, float3 v, float g)
+{
+    float cost = dot(l, -v);
+    return (1.0 - g * g) / (4.0 * pi() * pow(1.0 + g * g - 2.0 * g * cost, 3.0 / 2.0));
 }
