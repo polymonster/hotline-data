@@ -234,37 +234,16 @@ ps_output ps_mesh_lit(vs_output input) {
 
 // basic test
 float4 ps_mesh_pbr_ibl(vs_output input) : SV_TARGET {
-
-    /*
-    float3 N = n;
-    float3 V = normalize(m_viewPosition.xyz - worldPos.xyz);
-    float3 R = reflect(-V, N);
-    float3 F0 = FresnelSchlickRoughness(max(dot(N, V), 0.0), lerp(float3(0.04, 0.04, 0.04), albedo.rgb, metalness), roughness);
-    */
-
-    /*
-    float specLod = 16.0;
-    float diffLod = 4.0;
-
-    float3 irradiance = cubemapTexture.SampleLOD(samplerWrapLinear, n.xzy, diffLod).rgb;
-    float3 diffuse = irradiance * albedo;
-    float3 kS = F0;
-    float3 kD = (1.0 - kS) * (1.0 - metalness);
-    float3 prefilter = cubemapTexture.SampleLOD(samplerWrapLinear, R.xzy, roughness * specLod).rgb;
-    float2 brdf  = brdfLUT.Sample(samplerWrapLinear, float2(saturate(dot(N, V)), roughness)).rg;
-    float3 specular = prefilter * (F0 * brdf.x + brdf.y);
-
-    return float4(((kD * max(diffuse, 0.0) + max(specular, 0.0)) + Lo) * ao, albedo.a);
-    */
-
     float roughness = material_colour.x;
     float metalness = material_colour.y;
 
     float3 v = normalize(input.world_pos.xyz - view_position.xyz);
     float3 n = input.normal;
     
+    float3 albedo = float3(1.0, 0.3, 0.3);
+
     float3 f0 = fresnel_schlick_roughness(
-        max(dot(n, v), 0.0), lerp(float3(0.04, 0.04, 0.04), float3(1.0, 1.0, 1.0), metalness), roughness);
+        max(dot(n, v), 0.0), lerp(float3(0.04, 0.04, 0.04), albedo, metalness), roughness);
 
     float3 rd = normalize(input.world_pos.xyz - view_position.xyz) * float3(1.0, 1.0, -1.0);
     float3 nd = normalize(input.normal.xyz * float3(1.0, 1.0, -1.0));
@@ -272,19 +251,17 @@ float4 ps_mesh_pbr_ibl(vs_output input) : SV_TARGET {
     r.z *= -1.0;
 
     // irradiance / diffuse
-    float irradiance_lod = 4.0;
+    float irradiance_lod = 8.0;
     float3 irradiance = cubemaps[draw_indices.x].SampleLevel(sampler_wrap_linear, n.xyz, irradiance_lod).rgb;
-    float3 diffuse = irradiance;
+    float3 diffuse = irradiance * albedo;
 
     // specular / reflection
     float spec_lod = 16.0;
     float3 ks = f0;
     float3 kd = (1.0 - ks) * (1.0 - metalness);
     float3 prefilter = cubemaps[draw_indices.x].SampleLevel(sampler_wrap_linear, r.xyz, roughness * spec_lod).rgb;
-    // TODO: lut
-    float3 specular = prefilter;
+    float2 brdf = textures[draw_indices.y].Sample(sampler_wrap_linear, float2(saturate(dot(n, v)), roughness)).rg;
+    float3 specular = prefilter * (f0 * brdf.x + brdf.y);
 
-    return float4(specular, 1.0);
-
-    // return float4(((kd * max(diffuse,  0.0) + max(specular, 0.0))), 1.0);
+    return float4(((kd * max(diffuse, 0.0) + max(specular, 0.0))), 1.0);
 }
