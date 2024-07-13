@@ -136,10 +136,39 @@ float4 ps_single_omni_shadow(vs_output input) : SV_Target {
     float d = length(to_light) / light.radius / 2.0; // omni shadow space far plane is radius * 2.0
     float3 cv = l * float3(1.0, 1.0, -1.0);
 
+    // shadow map info
     int shadow_map_index = light.shadow_map.srv_index;
-    float shadow = cubemaps[shadow_map_index].SampleCmp(sampler_shadow_compare, cv, d).r;
+    float sm_size = 2048.0 * d;
 
-    //shadow = cubemaps[shadow_map_index].Sample(sampler_clamp_point, cv, d).r;
+    // construct plane
+    // choose a vector orthogonal to cv as the direction of b2.
+    float3 b2 = float3(0.0, -cv.z, cv.y);
+    if(abs(n.x) > abs(n.z))
+    {
+        b2 = float3(-cv.y, cv.x, 0.0);
+    }
+
+    // normalise b2 and construct t
+    b2 = b2 * rsqrt(dot(b2, b2));
+    float3 t = cross(b2, n);
+
+    float3 samples[9];
+    float inv_sm_size = (1.0 / sm_size.x);
+    samples[0] = (b2 * -1.0 + t * -1.0) * inv_sm_size;
+    samples[1] = (b2 * -1.0 + t *  0.0) * inv_sm_size;
+    samples[2] = (b2 * -1.0 + t *  1.0) * inv_sm_size;
+    samples[3] = (b2 *  0.0 + t * -1.0) * inv_sm_size;
+    samples[4] = (b2 *  0.0 + t *  0.0) * inv_sm_size;
+    samples[5] = (b2 *  0.0 + t *  1.0) * inv_sm_size;
+    samples[6] = (b2 *  1.0 + t * -1.0) * inv_sm_size;
+    samples[7] = (b2 *  1.0 + t *  0.0) * inv_sm_size;
+    samples[8] = (b2 *  1.0 + t * -1.0) * inv_sm_size;
+    
+    float shadow = 0.0;
+    for(int j = 0; j < 9; ++j) {
+        shadow += cubemaps[shadow_map_index].SampleCmp(sampler_shadow_compare, cv + samples[j], d).r;
+    }
+    shadow /= 9.0;
 
     if(dot(n, l) >= 0.0) {
         shadow = 0.0;
