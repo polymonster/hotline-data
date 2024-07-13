@@ -55,6 +55,30 @@ float sample_shadow_pcf_9(float3 sp, uint sm_index, float2 sm_size) {
     return shadow;
 }
 
+float sample_shadow_cube_pcf_9(float3 cv, float d, uint sm_index, float sm_size) {
+
+    float3 b2, t;
+    construct_orthonormal_basis_hughes_moeller(cv, b2, t);
+
+    float3 samples[9];
+    float inv_sm_size = 1.0 / (sm_size.x * d) + (1.0 / (sm_size.x * d)); // scale offset by distance
+    samples[0] = (b2 * -1.0 + t * -1.0) * inv_sm_size;
+    samples[1] = (b2 * -1.0 + t *  0.0) * inv_sm_size;
+    samples[2] = (b2 * -1.0 + t *  1.0) * inv_sm_size;
+    samples[3] = (b2 *  0.0 + t * -1.0) * inv_sm_size;
+    samples[4] = (b2 *  0.0 + t *  0.0) * inv_sm_size;
+    samples[5] = (b2 *  0.0 + t *  1.0) * inv_sm_size;
+    samples[6] = (b2 *  1.0 + t * -1.0) * inv_sm_size;
+    samples[7] = (b2 *  1.0 + t *  0.0) * inv_sm_size;
+    samples[8] = (b2 *  1.0 + t * -1.0) * inv_sm_size;
+    
+    float shadow = 0.0;
+    for(int j = 0; j < 9; ++j) {
+        shadow += cubemaps[shadow_map_index].SampleCmp(sampler_shadow_compare, cv + samples[j], d).r;
+    }
+    shadow /= 9.0;
+}
+
 float4 ps_single_directional_shadow(vs_output input) : SV_Target {
     float4 output = float4(0.0, 0.0, 0.0, 0.0);
 
@@ -138,38 +162,9 @@ float4 ps_single_omni_shadow(vs_output input) : SV_Target {
 
     // shadow map info
     int shadow_map_index = light.shadow_map.srv_index;
-    float sm_size = 2048.0 * d;
+    float sm_size = 2048.0;
 
-    // construct plane
-    // choose a vector orthogonal to cv as the direction of b2.
-    float3 b2 = float3(0.0, -cv.z, cv.y);
-    if(abs(n.x) > abs(n.z))
-    {
-        b2 = float3(-cv.y, cv.x, 0.0);
-    }
-
-    // normalise b2 and construct t
-    b2 = b2 * rsqrt(dot(b2, b2));
-    float3 t = cross(b2, n);
-
-    float3 samples[9];
-    float inv_sm_size = (1.0 / sm_size.x);
-    samples[0] = (b2 * -1.0 + t * -1.0) * inv_sm_size;
-    samples[1] = (b2 * -1.0 + t *  0.0) * inv_sm_size;
-    samples[2] = (b2 * -1.0 + t *  1.0) * inv_sm_size;
-    samples[3] = (b2 *  0.0 + t * -1.0) * inv_sm_size;
-    samples[4] = (b2 *  0.0 + t *  0.0) * inv_sm_size;
-    samples[5] = (b2 *  0.0 + t *  1.0) * inv_sm_size;
-    samples[6] = (b2 *  1.0 + t * -1.0) * inv_sm_size;
-    samples[7] = (b2 *  1.0 + t *  0.0) * inv_sm_size;
-    samples[8] = (b2 *  1.0 + t * -1.0) * inv_sm_size;
-    
-    float shadow = 0.0;
-    for(int j = 0; j < 9; ++j) {
-        shadow += cubemaps[shadow_map_index].SampleCmp(sampler_shadow_compare, cv + samples[j], d).r;
-    }
-    shadow /= 9.0;
-
+    float shadow = sample_shadow_cube_pcf_9(cv, d, sm_index, sm_size);
     if(dot(n, l) >= 0.0) {
         shadow = 0.0;
     }

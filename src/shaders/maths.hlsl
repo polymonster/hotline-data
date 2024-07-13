@@ -181,6 +181,20 @@ float3 uv_gradient(float x) {
     return rgb_uv;
 }
 
+// constructs ortho basis using hughes_moeller selecting from iput vector v, returning orthogonal vectors in bt and t
+void construct_orthonormal_basis_hughes_moeller(float3 v, float3 out bt, float3 out t) {
+    // choose a vector orthogonal to cv as the direction of b2.
+    b = float3(0.0, -cv.z, cv.y);
+    if(abs(n.x) > abs(n.z))
+    {
+        b = float3(-cv.y, cv.x, 0.0);
+    }
+
+    // normalise b2 and construct t
+    b = b * rsqrt(dot(b, b));
+    float3 t = cross(B, n);
+}
+
 // lambertian diffuse, where `l` is the direction from the light to the surface and `n` is the surface normal
 float lambert(float3 l, float3 n) {
     return saturate(1.0 - dot(n, l));
