@@ -1,11 +1,11 @@
 struct vs_input {
     float4 position : POSITION;
-    float4 colour: COLOR;
+    float4 colour: TEXCOORD0;
 };
 
 struct vs_output {
     float4 position : SV_POSITION0;
-    float4 colour: COLOR;
+    float4 colour: TEXCOORD0;
 };
 
 struct ps_output {

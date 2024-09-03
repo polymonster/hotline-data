@@ -2,7 +2,7 @@
 // contains core descriptor layout to be used among different / shared ecs systems
 //
 
-// generic (fat) + non-skinned mesh vertex layout 
+// generic (fat) + non-skinned mesh vertex layout
 struct vs_input_mesh {
     float3 position: POSITION;
     float2 texcoord: TEXCOORD0;
@@ -137,7 +137,7 @@ StructuredBuffer<spot_light_data> spot_lights[] : register(t0, space4);
 StructuredBuffer<directional_light_data> directional_lights[] : register(t0, space5);
 StructuredBuffer<float4x4> shadow_matrices[] : register(t0, space6);
 
-// textures 
+// textures
 Texture2D textures[] : register(t0, space7);
 Texture2DMS<float4, 8> msaa8x_textures[] : register(t0, space8);
 TextureCube cubemaps[] : register(t0, space9);

@@ -1,5 +1,5 @@
 struct vs_input {
-    float3 position : POSITION; 
+    float3 position : POSITION;
     float4 colour : COLOR;
 };
 
@@ -24,9 +24,10 @@ struct data {
     float4 rgba;
 };
 
-Texture2D texture0[10] : register(t0);
-ConstantBuffer<data> cbuffer0[10] : register(b2);
-SamplerState sampler0 : register(s0);
+//Texture2D texture1[11] : register(t1, space1);
+Texture2D texture0[11] : register(t0, space0);
+ConstantBuffer<data> cbuffer0[10] : register(b2, space2);
+SamplerState sampler0 : register(s0, space65535);
 
 ps_input vs_main(vs_input input) {
     ps_input output;
@@ -39,13 +40,20 @@ ps_output ps_main(ps_input input) {
     ps_output output;
 
     float4 final = float4(0.0, 0.0, 0.0, 0.0);
-    float2 uv = input.colour.rg * float2(1.0, -1.0);
+    float2 uv = input.colour.rg * float2(1.0, 1.0);
 
-    float4 r0 = texture0[1].Sample(sampler0, uv * 2.0);
-    float4 r1 = texture0[2].Sample(sampler0, uv * 2.0);
-    float4 r2 = texture0[3].Sample(sampler0, uv * 2.0);
-    float4 r3 = texture0[4].Sample(sampler0, uv * 2.0);
-    r3 *= my_rgba;
+    /*
+    float4 r0 = texture0[0][uv.xy * float2(512.0, 512.0)];
+    float4 r1 = texture0[1][uv.xy * float2(512.0, 512.0)];
+    float4 r2 = texture0[2][uv.xy * float2(512.0, 512.0)];
+    float4 r3 = texture0[3][uv.xy * float2(512.0, 512.0)];
+    */
+
+    float4 r0 = texture0[0].Sample(sampler0, uv * 2.0);
+    float4 r1 = texture0[1].Sample(sampler0, uv * 2.0);
+    float4 r2 = texture0[2].Sample(sampler0, uv * 2.0);
+    float4 r3 = texture0[3].Sample(sampler0, uv * 2.0);
+    //r3 *= my_rgba;
 
     if(input.colour.r < 0.5 && input.colour.g < 0.5)
     {
