@@ -13,7 +13,7 @@ Texture2D texture1 : register(t1);
 Texture2D texture2 : register(t2);
 Texture2D texture3 : register(t3);
 
-SamplerState sampler0 : register(s0, space65535);
+SamplerState sampler0 : register(s0);
 
 ps_input vs_main(vs_input input) {
     ps_input output;
