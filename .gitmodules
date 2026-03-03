@@ -1,0 +1,3 @@
+[submodule "pmfx-shader"]
+	path = pmfx-shader
+	url = https://github.com/polymonster/pmfx-shader
