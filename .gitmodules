@@ -1,3 +1,6 @@
 [submodule "pmfx-shader"]
 	path = pmfx-shader
 	url = https://github.com/polymonster/pmfx-shader
+[submodule "htwv/third_party/SPIRV-Cross"]
+	path = htwv/third_party/SPIRV-Cross
+	url = https://github.com/KhronosGroup/SPIRV-Cross.git
