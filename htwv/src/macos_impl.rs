@@ -389,7 +389,7 @@ fn compile_shader_spirv(
 
         // Compile .metal to .air
         let air_file = format!("{}.air", output_file);
-        let compile_status = Command::new("xcrun")
+        let compile_output = Command::new("xcrun")
             .args([
                 "-sdk",
                 "macosx",
@@ -400,22 +400,24 @@ fn compile_shader_spirv(
                 "-o",
                 &air_file,
             ])
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .status()?;
+            .output()?;
 
-        if !compile_status.success() {
+        if !compile_output.status.success() {
+            for line in String::from_utf8_lossy(&compile_output.stderr).lines() {
+                println!("cargo:warning={}", line);
+            }
             return Err(format!("Metal compilation failed for {}", temp_metal_file).into());
         }
 
         // Link .air to final output (metallib)
-        let link_status = Command::new("xcrun")
+        let link_output = Command::new("xcrun")
             .args(["-sdk", "macosx", "metal", &air_file, "-o", &output_file])
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .status()?;
+            .output()?;
 
-        if !link_status.success() {
+        if !link_output.status.success() {
+            for line in String::from_utf8_lossy(&link_output.stderr).lines() {
+                println!("cargo:warning={}", line);
+            }
             return Err(format!("Metal linking failed for {}", air_file).into());
         }
 
@@ -508,7 +510,6 @@ pub fn compile_dir(input_dir: &str, output_dir: &str) -> Result<(), Box<dyn Erro
     for entry in glob(&format!("{output_dir}/**/*.json")).expect("") {
         if let Ok(path) = entry {
             let path_str = path.to_str().unwrap();
-            println!("cargo:warning=  compiling pipeline: {path_str}");
             if let Err(e) = compile_piepline(path_str, temp_dir, output_dir) {
                 println!("cargo:warning=  pipeline error ({path_str}): {e}");
                 errors.push(format!("{}: {}", path_str, e));
