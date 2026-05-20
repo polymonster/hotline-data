@@ -298,18 +298,24 @@ fn compile_shader_spirv(
         for resource in &resources {
             for (_, binding) in pipeline.pipeline_layout.bindings.iter().enumerate() {
                 if binding.visibility == stage || binding.visibility == ShaderStage::All {
-                    let name = cstr_to_string(resource.name)?;
+                    // For UBOs, resource.name is the block type name (e.g. "type.ConstantBuffer.resource_uses"),
+                    // not the variable name. spvc_compiler_get_name on the variable id gives the actual
+                    // SPIR-V OpName on the variable (e.g. "resources"), so try that first.
+                    let var_name = cstr_to_string(spvc_compiler_get_name(compiler, resource.id))?;
+                    let type_name = cstr_to_string(resource.name)?;
 
                     // strip .type.ConstantBuffer.NAME_data prefix and suffix
-                    // or .type prefix
-                    let name = if let Some(name) = name.strip_prefix("type.ConstantBuffer.") {
-                        name.strip_suffix("_data").unwrap_or(name)
+                    // or .type prefix from the type-derived name as a fallback
+                    let type_derived_name = if let Some(n) = type_name.strip_prefix("type.ConstantBuffer.") {
+                        n.strip_suffix("_data").unwrap_or(n)
                     }
                     else {
-                        name.strip_prefix("type.").unwrap_or(&name)
+                        type_name.strip_prefix("type.").unwrap_or(&type_name)
                     };
 
-                    if &binding.name == name {
+                    let name_matches = binding.name == var_name || binding.name == type_derived_name;
+
+                    if name_matches {
                         // Set descriptor set
                         spvc_compiler_set_decoration(
                             compiler,
@@ -425,7 +431,6 @@ fn compile_shader_spirv(
         // let _ = fs::remove_file(&temp_metal_file);
         let _ = fs::remove_file(&air_file);
 
-        println!("cargo:warning=    compiled: {}", output_file);
         Ok(())
     }
 }
