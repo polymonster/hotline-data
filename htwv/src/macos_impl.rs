@@ -251,18 +251,22 @@ fn compile_shader_spirv(
                 if push_constant.visibility != stage && push_constant.visibility != ShaderStage::All {
                     continue;
                 }
-                let name = cstr_to_string(resource.name)?;
+                // For UBOs, resource.name is the block type name (e.g. "type.ConstantBuffer.resource_uses"),
+                // not the variable name. spvc_compiler_get_name on the variable id gives the actual
+                // SPIR-V OpName on the variable (e.g. "resources"), so check both.
+                let var_name = cstr_to_string(spvc_compiler_get_name(compiler, resource.id))?;
+                let type_name = cstr_to_string(resource.name)?;
 
-                // stip .type.ConstantBuffer.NAME_data prefix and suffix
-                // or .type prefix
-                let name = if let Some(name) = name.strip_prefix("type.ConstantBuffer.") {
-                    name.strip_suffix("_data").unwrap_or(name)
+                // strip .type.ConstantBuffer.NAME[_data|_type] prefix and suffix,
+                // or .type prefix from the type-derived name as a fallback
+                let type_derived_name = if let Some(n) = type_name.strip_prefix("type.ConstantBuffer.") {
+                    n.strip_suffix("_data").or_else(|| n.strip_suffix("_type")).unwrap_or(n)
                 }
                 else {
-                    name.strip_prefix("type.").unwrap_or(&name)
+                    type_name.strip_prefix("type.").unwrap_or(&type_name)
                 };
 
-                if push_constant.name == name {
+                if push_constant.name == var_name || push_constant.name == type_derived_name {
                     let desc_set = binding_offset as u32;
                     spvc_compiler_set_decoration(
                         compiler,
@@ -293,83 +297,131 @@ fn compile_shader_spirv(
             }
         }
 
-        // set bindings based on pipeline layout
-        let mut binding_sub_offset = 0;
-        for resource in &resources {
-            for (_, binding) in pipeline.pipeline_layout.bindings.iter().enumerate() {
-                if binding.visibility == stage || binding.visibility == ShaderStage::All {
-                    // For UBOs, resource.name is the block type name (e.g. "type.ConstantBuffer.resource_uses"),
-                    // not the variable name. spvc_compiler_get_name on the variable id gives the actual
-                    // SPIR-V OpName on the variable (e.g. "resources"), so try that first.
-                    let var_name = cstr_to_string(spvc_compiler_get_name(compiler, resource.id))?;
-                    let type_name = cstr_to_string(resource.name)?;
+        // Set bindings based on pipeline layout, grouped by (register_kind, register_number).
+        //
+        // Each (kind, number) pair (e.g. t0, t1, u0, u1) becomes its own MSL descriptor set so
+        // that the Metal backend can bind exactly one of the heap's two argument buffers
+        // (textures vs buffer pointers) per [[buffer(N)]] slot without clobber. The outer iter is
+        // pipeline_layout.bindings so allocation order matches what the Metal backend produces
+        // in build_stage_binders / build_slot_lookup.
+        //
+        // The unsized-array hack still applies WITHIN a group: when a set holds multiple unsized
+        // arrays, spirv-cross emits them at [[id(0)]], [[id(1)]], … and `array[i]` lowers to
+        // `arg_buffer[id + i]`. Callers compensate via RenderPipeline::get_sub_binding_offset
+        // in mtl.rs. See plan note for the deferred one-set-per-binding fix.
+        let resource_register_kind = |rt: &Option<String>| -> char {
+            match rt.as_deref() {
+                Some(s) if s.starts_with("RW") => 'u',
+                Some("ConstantBuffer") | Some("cbuffer") => 'b',
+                Some(s) if s.starts_with("Sampler") => 's',
+                _ => 't',
+            }
+        };
+        let resource_is_texture = |rt: &Option<String>| -> bool {
+            rt.as_deref()
+                .map_or(false, |t| t.starts_with("Texture") || t.starts_with("RWTexture"))
+        };
 
-                    // strip .type.ConstantBuffer.NAME_data prefix and suffix
-                    // or .type prefix from the type-derived name as a fallback
-                    let type_derived_name = if let Some(n) = type_name.strip_prefix("type.ConstantBuffer.") {
-                        n.strip_suffix("_data").unwrap_or(n)
-                    }
-                    else {
-                        type_name.strip_prefix("type.").unwrap_or(&type_name)
-                    };
+        // group key: (register_kind, register_number) -> (desc_set, next_sub_offset, group_is_texture)
+        let mut groups: HashMap<(char, u32), (u32, u32, bool)> = HashMap::new();
 
-                    let name_matches = binding.name == var_name || binding.name == type_derived_name;
+        for binding in &pipeline.pipeline_layout.bindings {
+            if binding.visibility != stage && binding.visibility != ShaderStage::All {
+                continue;
+            }
+            for resource in &resources {
+                // For UBOs, resource.name is the block type name (e.g. "type.ConstantBuffer.resource_uses"),
+                // not the variable name. spvc_compiler_get_name on the variable id gives the actual
+                // SPIR-V OpName on the variable (e.g. "resources"), so try that first.
+                let var_name = cstr_to_string(spvc_compiler_get_name(compiler, resource.id))?;
+                let type_name = cstr_to_string(resource.name)?;
 
-                    if name_matches {
-                        // Set descriptor set
-                        spvc_compiler_set_decoration(
-                            compiler,
-                            resource.id,
-                            SpvDecoration__SpvDecorationDescriptorSet,
-                            binding_offset as u32,
-                        );
+                // strip .type.ConstantBuffer.NAME[_data|_type] prefix and suffix,
+                // or .type prefix from the type-derived name as a fallback
+                let type_derived_name = if let Some(n) = type_name.strip_prefix("type.ConstantBuffer.") {
+                    n.strip_suffix("_data").or_else(|| n.strip_suffix("_type")).unwrap_or(n)
+                }
+                else {
+                    type_name.strip_prefix("type.").unwrap_or(&type_name)
+                };
 
-                        // Set binding index within the descriptor set
-                        spvc_compiler_set_decoration(
-                            compiler,
-                            resource.id,
-                            SpvDecoration__SpvDecorationBinding,
-                            binding_sub_offset as u32,
-                        );
+                if binding.name != var_name && binding.name != type_derived_name {
+                    continue;
+                }
 
-                        // Use resource_binding_2 to explicitly set argument buffer member binding
-                        let mut res_binding: spvc_msl_resource_binding_2 = std::mem::zeroed();
-                        spvc_msl_resource_binding_init_2(&mut res_binding);
-                        res_binding.stage = exec_model;
-                        res_binding.desc_set = binding_offset as u32;
-                        res_binding.binding = binding_sub_offset as u32;
-                        // For unbounded/runtime arrays (null or large num_descriptors), don't set count
-                        // to let SPIRV-Cross use the unsized array hack
-                        if let Some(num_desc) = binding.num_descriptors {
-                            if num_desc <= 16 {
-                                res_binding.count = num_desc;
-                            }
-                        }
+                // Read the original HLSL register number from the SPIR-V binding decoration
+                let register_number = spvc_compiler_get_decoration(
+                    compiler,
+                    resource.id,
+                    SpvDecoration__SpvDecorationBinding,
+                );
+                let kind = resource_register_kind(&binding.resource_type);
+                let is_texture = resource_is_texture(&binding.resource_type);
+                let key = (kind, register_number);
 
-                        // Set appropriate MSL binding based on resource type
-                        let is_texture = binding.resource_type.as_ref().map_or(false, |t| {
-                            t.starts_with("Texture") || t.starts_with("RWTexture")
-                        });
-                        if is_texture {
-                            res_binding.msl_texture = binding_sub_offset as u32;
-                        } else {
-                            res_binding.msl_buffer = binding_sub_offset as u32;
-                        }
-                        spvc_compiler_msl_add_resource_binding_2(compiler, &res_binding);
+                let entry = groups.entry(key).or_insert_with(|| {
+                    let ds = binding_offset as u32;
+                    binding_offset += 1;
+                    (ds, 0, is_texture)
+                });
+                // Validation: every binding in a group must share the same resource kind so the
+                // group resolves to exactly one of the heap's argument buffers.
+                if entry.2 != is_texture {
+                    return Err(format!(
+                        "{}: binding '{}' on register {}{} mixes texture and buffer resources \
+                         in the same group (existing group is_texture={}, this binding is_texture={})",
+                        filepath, binding.name, kind, register_number, entry.2, is_texture
+                    ).into());
+                }
+                let desc_set = entry.0;
+                let sub_offset = entry.1;
+                entry.1 += 1;
 
-                        binding_sub_offset += 1;
+                spvc_compiler_set_decoration(
+                    compiler,
+                    resource.id,
+                    SpvDecoration__SpvDecorationDescriptorSet,
+                    desc_set,
+                );
+                spvc_compiler_set_decoration(
+                    compiler,
+                    resource.id,
+                    SpvDecoration__SpvDecorationBinding,
+                    sub_offset,
+                );
+
+                let mut res_binding: spvc_msl_resource_binding_2 = std::mem::zeroed();
+                spvc_msl_resource_binding_init_2(&mut res_binding);
+                res_binding.stage = exec_model;
+                res_binding.desc_set = desc_set;
+                res_binding.binding = sub_offset;
+                // For unbounded/runtime arrays (null or large num_descriptors), don't set count
+                // to let SPIRV-Cross use the unsized array hack
+                if let Some(num_desc) = binding.num_descriptors {
+                    if num_desc <= 16 {
+                        res_binding.count = num_desc;
                     }
                 }
+                if is_texture {
+                    res_binding.msl_texture = sub_offset;
+                } else {
+                    res_binding.msl_buffer = sub_offset;
+                }
+                spvc_compiler_msl_add_resource_binding_2(compiler, &res_binding);
+
+                break;
             }
         }
 
-        // Enable device address space for the bindings argument buffer
-        // This allows runtime-sized arrays in the argument buffer
-        spvc_compiler_msl_set_argument_buffer_device_address_space(
-            compiler,
-            binding_offset as u32,
-            1, // true - use device address space
-        );
+        // Enable device address space on every descriptor set we allocated for regular bindings,
+        // allowing runtime-sized arrays in each argument buffer.
+        for (_, &(desc_set, _, _)) in &groups {
+            spvc_compiler_msl_set_argument_buffer_device_address_space(
+                compiler,
+                desc_set,
+                1, // true - use device address space
+            );
+        }
 
         let mut msl_src = std::ptr::null();
         let result = spvc_compiler_compile(compiler, &mut msl_src);
