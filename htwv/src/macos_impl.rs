@@ -553,8 +553,6 @@ pub fn compile_dir(input_dir: &str, output_dir: &str) -> Result<(), Box<dyn Erro
             "compute_frustum_cull",
             "mesh_lit_rt_shadow",
             "mesh_lit_rt_shadow2",
-            "mip_chain_texture2d",
-            "heightmap_mrt_resolve",
         ])
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
