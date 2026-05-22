@@ -297,18 +297,14 @@ fn compile_shader_spirv(
             }
         }
 
-        // Set bindings based on pipeline layout, grouped by (register_kind, register_number).
+        // Set bindings based on pipeline layout, grouped by (register_kind, register_number, space).
         //
-        // Each (kind, number) pair (e.g. t0, t1, u0, u1) becomes its own MSL descriptor set so
-        // that the Metal backend can bind exactly one of the heap's two argument buffers
-        // (textures vs buffer pointers) per [[buffer(N)]] slot without clobber. The outer iter is
-        // pipeline_layout.bindings so allocation order matches what the Metal backend produces
-        // in build_stage_binders / build_slot_lookup.
-        //
-        // The unsized-array hack still applies WITHIN a group: when a set holds multiple unsized
-        // arrays, spirv-cross emits them at [[id(0)]], [[id(1)]], … and `array[i]` lowers to
-        // `arg_buffer[id + i]`. Callers compensate via RenderPipeline::get_sub_binding_offset
-        // in mtl.rs. See plan note for the deferred one-set-per-binding fix.
+        // Each (kind, number, space) tuple becomes its own MSL descriptor set so that the Metal
+        // backend can bind exactly one of the heap's two argument buffers (textures vs buffer
+        // pointers) per [[buffer(N)]] slot without clobber, and every bindless array sits alone in
+        // its set at [[id(0)]] - so `array[i]` lowers to `arg_buffer[i]` with no offset to
+        // compensate for. The outer iter is pipeline_layout.bindings so allocation order matches
+        // what the Metal backend produces in build_stage_binders / build_slot_lookup.
         let resource_register_kind = |rt: &Option<String>| -> char {
             match rt.as_deref() {
                 Some(s) if s.starts_with("RW") => 'u',
@@ -322,8 +318,16 @@ fn compile_shader_spirv(
                 .map_or(false, |t| t.starts_with("Texture") || t.starts_with("RWTexture"))
         };
 
-        // group key: (register_kind, register_number) -> (desc_set, next_sub_offset, group_is_texture)
-        let mut groups: HashMap<(char, u32), (u32, u32, bool)> = HashMap::new();
+        // group key: (register_kind, register_number, register_space) -> (desc_set, group_is_texture)
+        //
+        // Space is part of the key because the bindless arrays are all declared on the same HLSL
+        // register but different spaces (e.g. textures t1/space7, cubemaps t1/space9). Grouping by
+        // register alone merged them into one descriptor set at consecutive ids (id(0), id(1), …),
+        // so `cubemaps[i]` lowered to `arg_buffer[1 + i]` and read the wrong (off-by-one) texture.
+        // Keying on space too gives each array its own descriptor set, alone at id(0). One binding
+        // per descriptor set is also the SPIRV-Cross limit (kMaxArgumentBuffers = 8) escape valve we
+        // intentionally trade against: see MAX_DESCRIPTOR_SETS below.
+        let mut groups: HashMap<(char, u32, u32), (u32, bool)> = HashMap::new();
 
         for binding in &pipeline.pipeline_layout.bindings {
             if binding.visibility != stage && binding.visibility != ShaderStage::All {
@@ -349,33 +353,40 @@ fn compile_shader_spirv(
                     continue;
                 }
 
-                // Read the original HLSL register number from the SPIR-V binding decoration
+                // Read the original HLSL register number and space from the SPIR-V decorations
+                // (HLSL `register(t1, space7)` -> Binding=1, DescriptorSet=7).
                 let register_number = spvc_compiler_get_decoration(
                     compiler,
                     resource.id,
                     SpvDecoration__SpvDecorationBinding,
                 );
+                let register_space = spvc_compiler_get_decoration(
+                    compiler,
+                    resource.id,
+                    SpvDecoration__SpvDecorationDescriptorSet,
+                );
                 let kind = resource_register_kind(&binding.resource_type);
                 let is_texture = resource_is_texture(&binding.resource_type);
-                let key = (kind, register_number);
+                let key = (kind, register_number, register_space);
 
                 let entry = groups.entry(key).or_insert_with(|| {
                     let ds = binding_offset as u32;
                     binding_offset += 1;
-                    (ds, 0, is_texture)
+                    (ds, is_texture)
                 });
                 // Validation: every binding in a group must share the same resource kind so the
                 // group resolves to exactly one of the heap's argument buffers.
-                if entry.2 != is_texture {
+                if entry.1 != is_texture {
                     return Err(format!(
                         "{}: binding '{}' on register {}{} mixes texture and buffer resources \
                          in the same group (existing group is_texture={}, this binding is_texture={})",
-                        filepath, binding.name, kind, register_number, entry.2, is_texture
+                        filepath, binding.name, kind, register_number, entry.1, is_texture
                     ).into());
                 }
                 let desc_set = entry.0;
-                let sub_offset = entry.1;
-                entry.1 += 1;
+                // Each (kind, register, space) group holds exactly one binding, so it is always the
+                // sole resource in its descriptor set, sitting at id(0).
+                let id_in_set = 0;
 
                 spvc_compiler_set_decoration(
                     compiler,
@@ -387,14 +398,14 @@ fn compile_shader_spirv(
                     compiler,
                     resource.id,
                     SpvDecoration__SpvDecorationBinding,
-                    sub_offset,
+                    id_in_set,
                 );
 
                 let mut res_binding: spvc_msl_resource_binding_2 = std::mem::zeroed();
                 spvc_msl_resource_binding_init_2(&mut res_binding);
                 res_binding.stage = exec_model;
                 res_binding.desc_set = desc_set;
-                res_binding.binding = sub_offset;
+                res_binding.binding = id_in_set;
                 // For unbounded/runtime arrays (null or large num_descriptors), don't set count
                 // to let SPIRV-Cross use the unsized array hack
                 if let Some(num_desc) = binding.num_descriptors {
@@ -403,9 +414,9 @@ fn compile_shader_spirv(
                     }
                 }
                 if is_texture {
-                    res_binding.msl_texture = sub_offset;
+                    res_binding.msl_texture = id_in_set;
                 } else {
-                    res_binding.msl_buffer = sub_offset;
+                    res_binding.msl_buffer = id_in_set;
                 }
                 spvc_compiler_msl_add_resource_binding_2(compiler, &res_binding);
 
@@ -415,11 +426,41 @@ fn compile_shader_spirv(
 
         // Enable device address space on every descriptor set we allocated for regular bindings,
         // allowing runtime-sized arrays in each argument buffer.
-        for (_, &(desc_set, _, _)) in &groups {
+        for (_, &(desc_set, _)) in &groups {
             spvc_compiler_msl_set_argument_buffer_device_address_space(
                 compiler,
                 desc_set,
                 1, // true - use device address space
+            );
+        }
+
+        // SPIRV-Cross hard-limits argument buffer descriptor sets to kMaxArgumentBuffers (8) and
+        // throws "Descriptor set index is out of range." past it (spirv_msl.cpp). Because we now
+        // give every (kind, register, space) binding its own descriptor set, that ceiling is the
+        // real cap on bindings per pipeline stage. `binding_offset` is the next free set index, so
+        // the highest set we assigned is `binding_offset - 1`. Warn before the cryptic throw. If a
+        // future SPIRV-Cross raises kMaxArgumentBuffers, bump this constant to match.
+        const MAX_DESCRIPTOR_SETS: i32 = 8;
+        let highest_set = binding_offset - 1;
+        let stage_name = match stage {
+            ShaderStage::Vertex => "vertex",
+            ShaderStage::Fragment => "fragment",
+            ShaderStage::Compute => "compute",
+            ShaderStage::All => "all",
+        };
+        if highest_set >= MAX_DESCRIPTOR_SETS {
+            println!(
+                "cargo:warning={} ({}): uses descriptor set index {} (>= SPIRV-Cross \
+                 kMaxArgumentBuffers={}) - shader compilation will fail. Reduce distinct \
+                 (register, space) bindings for this stage.",
+                filepath, stage_name, highest_set, MAX_DESCRIPTOR_SETS
+            );
+        }
+        else if highest_set == MAX_DESCRIPTOR_SETS - 1 {
+            println!(
+                "cargo:warning={} ({}): at the SPIRV-Cross descriptor set limit \
+                 (kMaxArgumentBuffers={}, last slot in use) - no headroom for further bindings.",
+                filepath, stage_name, MAX_DESCRIPTOR_SETS
             );
         }
 
