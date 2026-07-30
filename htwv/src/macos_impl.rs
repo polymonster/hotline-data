@@ -113,6 +113,12 @@ fn compile_shader_spirv(
         let spirv_file = format!("{}/{}", input_dir, temp_spirv);
         let output_file = format!("{}/{}", output_dir, filepath);
 
+        if let Ok(e) = std::fs::exists(&spirv_file) {
+            if !e {
+                return Ok(());
+            }
+        }
+
         let spirv_binary = load_spirv_file(&spirv_file);
 
         let mut ctx = std::ptr::null_mut();
