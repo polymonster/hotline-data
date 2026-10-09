@@ -62,6 +62,8 @@ enum ShaderStage {
     Vertex,
     Fragment,
     Compute,
+    Mesh,
+    Amplification,
     All,
 }
 
@@ -87,6 +89,9 @@ struct Pipeline {
     vs: Option<String>,
     ps: Option<String>,
     cs: Option<String>,
+    ms: Option<String>,
+    #[serde(rename = "as")]
+    amps: Option<String>,
     lib: Option<Vec<String>>,
     pipeline_layout: PipelineLayout,
 }
@@ -108,7 +113,9 @@ fn compile_shader_spirv(
         let temp_spirv = filepath
             .replace(".vsc", ".spirv")
             .replace(".psc", ".spirv")
-            .replace(".csc", ".spirv");
+            .replace(".csc", ".spirv")
+            .replace(".msc", ".spirv")
+            .replace(".asc", ".spirv");
 
         let spirv_file = format!("{}/{}", input_dir, temp_spirv);
         let output_file = format!("{}/{}", output_dir, filepath);
@@ -248,6 +255,8 @@ fn compile_shader_spirv(
             ShaderStage::Vertex => SpvExecutionModel__SpvExecutionModelVertex,
             ShaderStage::Fragment => SpvExecutionModel__SpvExecutionModelFragment,
             ShaderStage::Compute => SpvExecutionModel__SpvExecutionModelGLCompute,
+            ShaderStage::Mesh => SpvExecutionModel__SpvExecutionModelMeshEXT,
+            ShaderStage::Amplification => SpvExecutionModel__SpvExecutionModelTaskEXT,
             _ => SpvExecutionModel__SpvExecutionModelVertex,
         };
 
@@ -452,6 +461,8 @@ fn compile_shader_spirv(
             ShaderStage::Vertex => "vertex",
             ShaderStage::Fragment => "fragment",
             ShaderStage::Compute => "compute",
+            ShaderStage::Mesh => "mesh",
+            ShaderStage::Amplification => "amplification",
             ShaderStage::All => "all",
         };
         if highest_set >= MAX_DESCRIPTOR_SETS {
@@ -557,6 +568,16 @@ pub fn compile_piepline(
             if let Some(cs) = &pipeline.cs {
                 if let Err(e) = compile_shader_spirv(cs, input_dir, output_dir, &pipeline, ShaderStage::Compute) {
                     errors.push(format!("{cs}: {e}"));
+                }
+            }
+            if let Some(ms) = &pipeline.ms {
+                if let Err(e) = compile_shader_spirv(ms, input_dir, output_dir, &pipeline, ShaderStage::Mesh) {
+                    errors.push(format!("{ms}: {e}"));
+                }
+            }
+            if let Some(amps) = &pipeline.amps {
+                if let Err(e) = compile_shader_spirv(amps, input_dir, output_dir, &pipeline, ShaderStage::Amplification) {
+                    errors.push(format!("{amps}: {e}"));
                 }
             }
         }
