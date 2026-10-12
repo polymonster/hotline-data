@@ -62,6 +62,8 @@ enum ShaderStage {
     Vertex,
     Fragment,
     Compute,
+    Mesh,
+    Amplification,
     All,
 }
 
@@ -87,6 +89,9 @@ struct Pipeline {
     vs: Option<String>,
     ps: Option<String>,
     cs: Option<String>,
+    ms: Option<String>,
+    #[serde(rename = "as")]
+    amps: Option<String>,
     lib: Option<Vec<String>>,
     pipeline_layout: PipelineLayout,
 }
@@ -108,7 +113,9 @@ fn compile_shader_spirv(
         let temp_spirv = filepath
             .replace(".vsc", ".spirv")
             .replace(".psc", ".spirv")
-            .replace(".csc", ".spirv");
+            .replace(".csc", ".spirv")
+            .replace(".msc", ".spirv")
+            .replace(".asc", ".spirv");
 
         let spirv_file = format!("{}/{}", input_dir, temp_spirv);
         let output_file = format!("{}/{}", output_dir, filepath);
@@ -195,6 +202,7 @@ fn compile_shader_spirv(
             spvc_resource_type_SPVC_RESOURCE_TYPE_STORAGE_IMAGE,
             spvc_resource_type_SPVC_RESOURCE_TYPE_SAMPLED_IMAGE,
             spvc_resource_type_SPVC_RESOURCE_TYPE_SEPARATE_SAMPLERS,
+            spvc_resource_type_SPVC_RESOURCE_TYPE_ACCELERATION_STRUCTURE,
         ];
 
         let resources: Vec<_> = resource_types
@@ -248,6 +256,8 @@ fn compile_shader_spirv(
             ShaderStage::Vertex => SpvExecutionModel__SpvExecutionModelVertex,
             ShaderStage::Fragment => SpvExecutionModel__SpvExecutionModelFragment,
             ShaderStage::Compute => SpvExecutionModel__SpvExecutionModelGLCompute,
+            ShaderStage::Mesh => SpvExecutionModel__SpvExecutionModelMeshEXT,
+            ShaderStage::Amplification => SpvExecutionModel__SpvExecutionModelTaskEXT,
             _ => SpvExecutionModel__SpvExecutionModelVertex,
         };
 
@@ -452,6 +462,8 @@ fn compile_shader_spirv(
             ShaderStage::Vertex => "vertex",
             ShaderStage::Fragment => "fragment",
             ShaderStage::Compute => "compute",
+            ShaderStage::Mesh => "mesh",
+            ShaderStage::Amplification => "amplification",
             ShaderStage::All => "all",
         };
         if highest_set >= MAX_DESCRIPTOR_SETS {
@@ -559,6 +571,16 @@ pub fn compile_piepline(
                     errors.push(format!("{cs}: {e}"));
                 }
             }
+            if let Some(ms) = &pipeline.ms {
+                if let Err(e) = compile_shader_spirv(ms, input_dir, output_dir, &pipeline, ShaderStage::Mesh) {
+                    errors.push(format!("{ms}: {e}"));
+                }
+            }
+            if let Some(amps) = &pipeline.amps {
+                if let Err(e) = compile_shader_spirv(amps, input_dir, output_dir, &pipeline, ShaderStage::Amplification) {
+                    errors.push(format!("{amps}: {e}"));
+                }
+            }
         }
     }
 
@@ -569,7 +591,9 @@ pub fn compile_piepline(
     }
 }
 
-pub fn compile_dir(input_dir: &str, output_dir: &str) -> Result<(), Box<dyn Error>> {
+/// Compile all pmfx shaders in `input_dir` to metal shader libraries in `output_dir`. Pipelines named in `ignores`
+/// are skipped, for pipelines a project knows cannot compile for metal (ie. raytracing pipelines)
+pub fn compile_dir(input_dir: &str, output_dir: &str, ignores: &[&str]) -> Result<(), Box<dyn Error>> {
     let temp_dir = "target/temp/shaders";
 
     // Use CARGO_MANIFEST_DIR to locate pmfx.py relative to this crate
@@ -577,30 +601,31 @@ pub fn compile_dir(input_dir: &str, output_dir: &str) -> Result<(), Box<dyn Erro
         "hotline-data/pmfx-shader/pmfx.py"
     );
 
+    let mut args = vec![
+        pmfx_path.as_str(),
+        "-shader_platform",
+        "spirv",
+        "-shader_version",
+        "6_5",
+        "-i",
+        input_dir,
+        "-o",
+        output_dir,
+        "-t",
+        temp_dir,
+        "-num_threads",
+        "1",
+        "-f",
+        "-args",
+        "-Zpr",
+    ];
+    if !ignores.is_empty() {
+        args.push("-ignores");
+        args.extend_from_slice(ignores);
+    }
+
     let status = Command::new("python3")
-        .args(&[
-            &pmfx_path,
-            "-shader_platform",
-            "spirv",
-            "-shader_version",
-            "6_5",
-            "-i",
-            input_dir,
-            "-o",
-            output_dir,
-            "-t",
-            temp_dir,
-            "-num_threads",
-            "1",
-            "-f",
-            "-args",
-            "-Zpr",
-            "-ignores",
-            "raytracing",
-            "compute_frustum_cull",
-            "mesh_lit_rt_shadow",
-            "mesh_lit_rt_shadow2",
-        ])
+        .args(&args)
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status()
@@ -629,6 +654,6 @@ pub fn compile_dir(input_dir: &str, output_dir: &str) -> Result<(), Box<dyn Erro
 mod tests {
     #[test]
     fn run() {
-        super::compile_dir("../hotline/shaders", "target/shaders").unwrap();
+        super::compile_dir("../hotline/shaders", "target/shaders", &[]).unwrap();
     }
 }

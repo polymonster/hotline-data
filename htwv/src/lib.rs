@@ -19,6 +19,7 @@ pub use macos_impl::*;
 pub fn compile_dir(
     _input_dir: &str,
     _output_dir: &str,
+    _ignores: &[&str],
 ) -> Result<(), Box<dyn std::error::Error>> {
     Err("htwv shader compilation is only available on macOS".into())
 }
